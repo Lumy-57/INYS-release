@@ -1,0 +1,7 @@
+.godot/
+export/
+*.import
+*.uid
+*.tsc
+game.zip
+*.cfg

@@ -87,5 +87,6 @@ Toutes les touches se changent dans **Options > Touches**, au clavier comme à l
 
 ---
 
-Lumignon est un jeu fait par **leobeerens57**. Ce dépôt sert uniquement à distribuer le jeu.
+Lumignon est un jeu fait par **leobeerens57** avec Godot 4. Ce dépôt contient le code source du jeu
+et ses versions publiées. Pour ouvrir le projet dans Godot, voir **[docs/developpement.md](docs/developpement.md)**.
 Pour signaler un bug ou donner ton avis, ouvre une **[issue](../../issues)**.
