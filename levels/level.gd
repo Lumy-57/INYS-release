@@ -29,7 +29,8 @@ const CHARS := "#%=^v<>-" + "LOX|12ab" + "iMWSB~HR" + "PCDEe*Yy"
 @export_range(0.0, 1.0, 0.05) var colors := 0.0
 ## L'ombre H marche avec le fantôme sans le toucher
 @export var companion := false
-## Taille de la salle en cases ; (0, 0) : la plus petite qui contient toutes les tuiles depuis (0, 0)
+## Taille de la salle en cases, depuis sa tuile la plus en haut à gauche ; (0, 0) : la plus petite
+## qui contient toutes les tuiles
 @export var room_size := Vector2i.ZERO:
 	set(v):
 		room_size = v
@@ -48,13 +49,14 @@ func _on_map_changed() -> void:
 	update_configuration_warnings()
 
 
-# Dans l'éditeur : le contour de la salle et la taille d'un écran (480 × 270) depuis le coin
+# Dans l'éditeur : le contour de la salle et la taille d'un écran (480 × 270) depuis son coin
 func _draw() -> void:
 	if not Engine.is_editor_hint():
 		return
+	var corner := Vector2(_origin()) * TILE
 	var size := Vector2(_grid_size()) * TILE
-	draw_rect(Rect2(Vector2.ZERO, size), Color(1, 0.8, 0.3, 0.9), false, 2.0)
-	draw_rect(Rect2(Vector2.ZERO, Vector2(480, 270)), Color(1, 1, 1, 0.25), false, 1.0)
+	draw_rect(Rect2(corner, size), Color(1, 0.8, 0.3, 0.9), false, 2.0)
+	draw_rect(Rect2(corner, Vector2(480, 270)), Color(1, 1, 1, 0.25), false, 1.0)
 
 
 func _get_configuration_warnings() -> PackedStringArray:
@@ -69,9 +71,6 @@ func _get_configuration_warnings() -> PackedStringArray:
 	for cell in map.get_used_cells():
 		var c := _char_at(map, cell)
 		counts[c] = counts.get(c, 0) + 1
-		if cell.x < 0 or cell.y < 0:
-			out.append("Des tuiles sont à gauche ou au-dessus de (0, 0) : elles seront ignorées.")
-			break
 	if counts.get("P", 0) != 1:
 		out.append("Il faut exactement un départ (fantôme blanc P).")
 	if counts.get("E", 0) == 0:
@@ -89,37 +88,44 @@ func _char_at(map: TileMapLayer, cell: Vector2i) -> String:
 	return CHARS[i] if a.x >= 0 and i < CHARS.length() else "."
 
 
+# La salle commence à la tuile la plus en haut à gauche : on peut peindre partout, même au-dessus
+# ou à gauche de l'origine du nœud, la carte est recalée en (0, 0) au lancement
+func _origin() -> Vector2i:
+	var map := _map_layer()
+	if map == null or map.get_used_cells().is_empty():
+		return Vector2i.ZERO
+	return map.get_used_rect().position
+
+
 func _grid_size() -> Vector2i:
 	if room_size.x > 0 and room_size.y > 0:
 		return room_size
-	var size := Vector2i.ZERO
 	var map := _map_layer()
-	if map:
-		for cell in map.get_used_cells():
-			size = size.max(cell + Vector2i.ONE)
-	return size
+	return map.get_used_rect().size if map else Vector2i.ZERO
 
 
 # Le niveau au format de level_data.gd : nom, chapitre, indices [x, y, texte] et carte en texte
 func to_data() -> Dictionary:
+	var origin := _origin()
 	var size := _grid_size()
 	var rows := []
 	for y in size.y:
 		rows.append(".".repeat(size.x))
 	var map := _map_layer()
 	if map:
-		for cell in map.get_used_cells():
-			if cell.x < 0 or cell.y < 0 or cell.x >= size.x or cell.y >= size.y:
+		for used in map.get_used_cells():
+			var cell: Vector2i = used - origin
+			if cell.x >= size.x or cell.y >= size.y:
 				continue
 			var row: String = rows[cell.y]
-			row[cell.x] = _char_at(map, cell)
+			row[cell.x] = _char_at(map, used)
 			rows[cell.y] = row
 	var hints := []
 	var holder := get_node_or_null("Indices")
 	if holder:
 		for h in holder.get_children():
 			if h is Node2D and "text" in h:
-				var cell := Vector2i((h.position / TILE).floor())
+				var cell := Vector2i((h.position / TILE).floor()) - origin
 				hints.append([cell.x, cell.y, h.text])
 	var data := {"name": level_name, "chapter": chapter, "hints": hints, "map": rows}
 	if bside:

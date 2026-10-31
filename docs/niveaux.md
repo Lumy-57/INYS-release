@@ -19,9 +19,9 @@ Niveau        (Node2D, script levels/level.gd) : nom, chapitre, options dans l'I
 ```
 
 Dans l'éditeur, un cadre orange montre le contour de la salle et un cadre blanc pâle la taille
-d'un écran (480 × 270) depuis le coin en haut à gauche. Les indices affichent leur texte à côté
+d'un écran (480 × 270) depuis son coin en haut à gauche. Les indices affichent leur texte à côté
 de leur case. Un panneau d'avertissement (triangle jaune sur « Niveau ») signale un niveau sans
-nom, sans départ `P` (ou avec plusieurs), sans sortie `E`, ou des tuiles hors de la salle.
+nom, sans départ `P` (ou avec plusieurs) ou sans sortie `E`.
 
 ## Modifier un niveau
 
@@ -42,10 +42,11 @@ Une case vide (rien de peint) est du vide, comme l'ancien `.`.
 Chaque tuile correspond à un caractère de l'ancien format texte (entre parenthèses), et les
 règles n'ont pas changé :
 
-- **Salle** : elle commence en (0, 0), le coin en haut à gauche. Les côtés et le plafond hors
-  de la salle comptent comme des murs ; sous la dernière rangée, c'est la chute. La taille de
-  la salle est la plus petite qui contient toutes les tuiles ; pour la forcer (par exemple un
-  fond ouvert), remplis **Room Size** sur le nœud Niveau.
+- **Salle** : c'est le plus petit rectangle qui contient toutes les tuiles peintes (le cadre
+  orange). Tu peux agrandir un niveau dans tous les sens, même au-dessus ou à gauche de
+  l'origine du nœud : la caméra et les limites suivent toutes seules. Les côtés et le plafond
+  hors de la salle comptent comme des murs ; sous la dernière rangée, c'est la chute. Pour
+  forcer la taille (par exemple un fond ouvert), remplis **Room Size** sur le nœud Niveau.
 - **Départ `P`** : un seul par niveau, le fantôme apparaît sur cette case.
 - **Bougie `C`, ressort `S`, sortie `E`** : posés sur le sol, dans la case juste au-dessus.
 - **Plateformes mobiles `M` / `W`** : une plateforme de plusieurs cases se peint en plusieurs
