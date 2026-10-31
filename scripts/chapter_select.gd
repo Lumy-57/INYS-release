@@ -105,9 +105,7 @@ func _refresh() -> void:
 			continue
 		var lvl: Dictionary = LevelData.LEVELS[idx]
 		var best: float = main.save.best_level_time(idx)
-		var total := 0
-		for row in lvl["map"]:
-			total += row.count("*")
+		var total := LevelData.count(idx, "*")
 		var mark := ""
 		if total > 0:
 			mark = "   étincelle" if main.save.found_sparks(idx).size() >= total else "   ·"

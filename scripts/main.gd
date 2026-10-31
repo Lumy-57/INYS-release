@@ -336,28 +336,24 @@ func _load_level(index: int) -> void:
 
 	var data: Dictionary = LevelData.LEVELS[index]
 	var colors := Palette.strength(index)
-	var rows: Array = data["map"]
-	var h := rows.size()
-	var w := 0
-	for r in rows:
-		w = maxi(w, r.length())
+	# Une case peut porter plusieurs éléments (un par calque de la scène) : grid[y][x] est la chaîne
+	# de leurs caractères, "" pour une case vide
+	var grid := LevelData.grid(index)
+	var h := grid.size()
+	var w: int = grid[0].size() if h > 0 else 0
 	room_size = Vector2(w, h) * TILE
-
-	var grid := []
-	for r in rows:
-		grid.append(r.rpad(w, "."))
 
 	var is_solid := func(x: int, y: int) -> bool:
 		if x < 0 or x >= w or y < 0:
 			return true
 		if y >= h:
 			return false
-		return grid[y][x] == "#" or grid[y][x] == "="
+		return "#" in grid[y][x] or "=" in grid[y][x]
 
 	# Pour le dessin, les fausses parois (et la sortie secrète qu'elles cachent) comptent comme
 	# des murs : aucun liseré ne les trahit
 	var looks_solid := func(x: int, y: int) -> bool:
-		return is_solid.call(x, y) or (x >= 0 and x < w and y >= 0 and y < h and grid[y][x] in ["%", "e"])
+		return is_solid.call(x, y) or (x >= 0 and x < w and y >= 0 and y < h and ("%" in grid[y][x] or "e" in grid[y][x]))
 
 	var drawer := TilesDrawer.new()
 	drawer.wall = Palette.wall(colors)
@@ -410,102 +406,103 @@ func _load_level(index: int) -> void:
 	level_root.add_child(occluders)
 	for y in h:
 		for x in w:
-			var c: String = grid[y][x]
+			var here: String = grid[y][x]
 			var cell := Vector2i(x, y)
 			var base := Vector2(x, y) * TILE
 			# Fausse paroi : dessinée comme un mur ; la sortie secrète est cachée dessous
-			if c == "%" or c == "e":
+			if "%" in here or "e" in here:
 				fake.cells.append(cell)
 				var fake_rims := [cell, not looks_solid.call(x, y - 1), not looks_solid.call(x, y + 1),
 					not looks_solid.call(x - 1, y), not looks_solid.call(x + 1, y)]
 				if fake_rims.has(true):
 					fake.edges.append(fake_rims)
-			match c:
-				"#":
-					drawer.solids.append(cell)
-					var up: bool = not is_solid.call(x, y - 1)
-					var down: bool = not is_solid.call(x, y + 1)
-					var left: bool = not is_solid.call(x - 1, y)
-					var right: bool = not is_solid.call(x + 1, y)
-					var rims := [cell, not looks_solid.call(x, y - 1), not looks_solid.call(x, y + 1),
-						not looks_solid.call(x - 1, y), not looks_solid.call(x + 1, y)]
-					if rims.has(true):
-						drawer.edges.append(rims)
-					if up or down or left or right:
-						var r := Rect2(base, Vector2(TILE, TILE))
-						r = r.grow_individual(-RIM if left else 0.0, -RIM if up else 0.0, -RIM if right else 0.0, -RIM if down else 0.0)
-						var occ := LightOccluder2D.new()
-						var poly := OccluderPolygon2D.new()
-						poly.polygon = PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)])
-						occ.occluder = poly
-						occluders.add_child(occ)
-				"^", "v", "<", ">":
-					drawer.spikes.append([cell, c])
-					_add_spike(base, c)
-				"L", "O":
-					phase_runs[c].append(cell)
-				"X", "|":
-					phase_runs[c].append(cell)
-				"M", "W":
-					mover_cells[c].append(cell)
-				"-":
-					rail_cells.append(cell)
-				"a", "b", "B":
-					chime_cells[c].append(cell)
-				"1", "2":
-					timed_cells[c].append(cell)
-				"H":
-					has_chaser = true
-				"~":
-					dark_top = base.y
-				"R":
-					reflect_start = base + Vector2(8, 16 - 7)
-				"=":
-					glass_cells.append(cell)
-				"i":
-					hidden_cells.append(cell)
-				"Y", "y":
-					eye_cells.append([base + Vector2(8, 8), 0.0 if c == "Y" else 0.5])
-				"S":
-					var spring := Spring.new()
-					spring.position = base + Vector2(8, 16)
-					spring.player = player
-					spring.launched.connect(func(_s):
-						sfx.play("jump", 0.0)
-						add_shake(1.5))
-					level_root.add_child(spring)
-				"P":
-					respawn_point = base + Vector2(8, 16 - 7)
-				"C":
-					var cp := Checkpoint.new()
-					cp.position = base + Vector2(8, 16)
-					cp.reached.connect(_on_checkpoint)
-					level_root.add_child(cp)
-					checkpoints.append(cp)
-				"D":
-					var cr := Crystal.new()
-					cr.position = base + Vector2(8, 8)
-					cr.touched.connect(_on_crystal)
-					level_root.add_child(cr)
-					crystals.append(cr)
-				"E", "e":
-					var ex := ExitPortal.new()
-					ex.position = base + Vector2(8, 16)
-					ex.secret = c == "e"
-					if ex.secret:
-						ex.veil = fake
-						ex.cell = cell
-						fake.secrets.append(cell)
-					ex.entered.connect(_on_exit)
-					level_root.add_child(ex)
-				"*":
-					var sp := Spark.new()
-					sp.position = base + Vector2(8, 8)
-					sp.cell = cell
-					sp.known = found_sparks.has(cell)
-					sp.collected.connect(_on_spark)
-					level_root.add_child(sp)
-					sparks.append(sp)
+			for c in here:
+				match c:
+					"#":
+						drawer.solids.append(cell)
+						var up: bool = not is_solid.call(x, y - 1)
+						var down: bool = not is_solid.call(x, y + 1)
+						var left: bool = not is_solid.call(x - 1, y)
+						var right: bool = not is_solid.call(x + 1, y)
+						var rims := [cell, not looks_solid.call(x, y - 1), not looks_solid.call(x, y + 1),
+							not looks_solid.call(x - 1, y), not looks_solid.call(x + 1, y)]
+						if rims.has(true):
+							drawer.edges.append(rims)
+						if up or down or left or right:
+							var r := Rect2(base, Vector2(TILE, TILE))
+							r = r.grow_individual(-RIM if left else 0.0, -RIM if up else 0.0, -RIM if right else 0.0, -RIM if down else 0.0)
+							var occ := LightOccluder2D.new()
+							var poly := OccluderPolygon2D.new()
+							poly.polygon = PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)])
+							occ.occluder = poly
+							occluders.add_child(occ)
+					"^", "v", "<", ">":
+						drawer.spikes.append([cell, c])
+						_add_spike(base, c)
+					"L", "O":
+						phase_runs[c].append(cell)
+					"X", "|":
+						phase_runs[c].append(cell)
+					"M", "W":
+						mover_cells[c].append(cell)
+					"-":
+						rail_cells.append(cell)
+					"a", "b", "B":
+						chime_cells[c].append(cell)
+					"1", "2":
+						timed_cells[c].append(cell)
+					"H":
+						has_chaser = true
+					"~":
+						dark_top = base.y
+					"R":
+						reflect_start = base + Vector2(8, 16 - 7)
+					"=":
+						glass_cells.append(cell)
+					"i":
+						hidden_cells.append(cell)
+					"Y", "y":
+						eye_cells.append([base + Vector2(8, 8), 0.0 if c == "Y" else 0.5])
+					"S":
+						var spring := Spring.new()
+						spring.position = base + Vector2(8, 16)
+						spring.player = player
+						spring.launched.connect(func(_s):
+							sfx.play("jump", 0.0)
+							add_shake(1.5))
+						level_root.add_child(spring)
+					"P":
+						respawn_point = base + Vector2(8, 16 - 7)
+					"C":
+						var cp := Checkpoint.new()
+						cp.position = base + Vector2(8, 16)
+						cp.reached.connect(_on_checkpoint)
+						level_root.add_child(cp)
+						checkpoints.append(cp)
+					"D":
+						var cr := Crystal.new()
+						cr.position = base + Vector2(8, 8)
+						cr.touched.connect(_on_crystal)
+						level_root.add_child(cr)
+						crystals.append(cr)
+					"E", "e":
+						var ex := ExitPortal.new()
+						ex.position = base + Vector2(8, 16)
+						ex.secret = c == "e"
+						if ex.secret:
+							ex.veil = fake
+							ex.cell = cell
+							fake.secrets.append(cell)
+						ex.entered.connect(_on_exit)
+						level_root.add_child(ex)
+					"*":
+						var sp := Spark.new()
+						sp.position = base + Vector2(8, 8)
+						sp.cell = cell
+						sp.known = found_sparks.has(cell)
+						sp.collected.connect(_on_spark)
+						level_root.add_child(sp)
+						sparks.append(sp)
 	level_root.add_child(drawer)
 	level_root.move_child(drawer, 0)
 	var has_fake := not fake.cells.is_empty()
@@ -634,11 +631,11 @@ func _add_movers(mover_cells: Dictionary, rail_cells: Array, grid: Array) -> voi
 			mv.vertical = k == "W"
 			var step := Vector2i(0, 1) if mv.vertical else Vector2i(1, 0)
 			var before := 0
-			while _cell(grid, c0 - step * (before + 1)) == "-":
+			while "-" in _cell(grid, c0 - step * (before + 1)):
 				before += 1
 			var after := 0
 			var far := c0 + Vector2i(n.x - 1, n.y - 1)
-			while _cell(grid, far + step * (after + 1)) == "-":
+			while "-" in _cell(grid, far + step * (after + 1)):
 				after += 1
 			mv.low = -before * TILE
 			mv.high = after * TILE
@@ -795,7 +792,7 @@ func _add_pursuers(has_chaser: bool, dark_top: float, companion: bool) -> void:
 
 
 func _cell(grid: Array, c: Vector2i) -> String:
-	if c.y < 0 or c.y >= grid.size() or c.x < 0 or c.x >= grid[c.y].length():
+	if c.y < 0 or c.y >= grid.size() or c.x < 0 or c.x >= grid[c.y].size():
 		return "#"
 	return grid[c.y][c.x]
 
@@ -1184,9 +1181,7 @@ func _draw_menu() -> void:
 func _level_info(index: int) -> String:
 	var best := save.best_level_time(index)
 	var info := "record %s" % (_format_time(best) if best >= 0.0 else "—")
-	var total := 0
-	for row in LevelData.LEVELS[index]["map"]:
-		total += row.count("*")
+	var total := LevelData.count(index, "*")
 	if total > 0:
 		info += "   ·   étincelles %d/%d" % [save.found_sparks(index).size(), total]
 	return info
