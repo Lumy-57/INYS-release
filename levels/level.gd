@@ -13,6 +13,8 @@ const CHARS := "#%=^v<>-" + "LOX|12ab" + "iMWSB~HR" + "PCDEe*Yy"
 # Source 1 de la palette (levels/murs.png, tools/make_murs.py) : les murs taillés, une rangée par
 # style, peints avec les terrains pour que l'éditeur choisisse les bords tout seul
 const SHAPED := "rtg"
+# Dernière rangée de cette source : les pentes (scripts/slopes.gd), raides puis douces
+const SLOPE_CHARS := "jkun" + "cdfh" + "lmos"
 
 ## Nom affiché du niveau. Il sert aussi de clé à la sauvegarde : le changer remet ses records à zéro.
 @export var level_name := "":
@@ -108,6 +110,8 @@ func _map_layer() -> TileMapLayer:
 func _char_at(map: TileMapLayer, cell: Vector2i) -> String:
 	var a := map.get_cell_atlas_coords(cell)
 	if map.get_cell_source_id(cell) == 1:
+		if a.y == SHAPED.length():
+			return SLOPE_CHARS[a.x] if a.x >= 0 and a.x < SLOPE_CHARS.length() else "."
 		return SHAPED[a.y] if a.y >= 0 and a.y < SHAPED.length() else "."
 	var i := a.y * COLS + a.x
 	return CHARS[i] if a.x >= 0 and i < CHARS.length() else "."

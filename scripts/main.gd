@@ -44,6 +44,7 @@ const HintOrb = preload("res://scripts/hint_orb.gd")
 const OrbBlocks = preload("res://scripts/orb_blocks.gd")
 const FakeWall = preload("res://scripts/fake_wall.gd")
 const Palette = preload("res://scripts/palette.gd")
+const Slopes = preload("res://scripts/slopes.gd")
 const UpdateCheck = preload("res://scripts/update_check.gd")
 
 const AMBIENT := Color(0.09, 0.09, 0.09)
@@ -360,6 +361,15 @@ func _load_level(index: int) -> void:
 	# des murs : aucun liseré ne les trahit
 	var looks_solid := func(x: int, y: int) -> bool:
 		return is_solid.call(x, y) or (x >= 0 and x < w and y >= 0 and y < h and grid[y][x] in ["%", "e"])
+	# Un voisin cache le bord d'un mur s'il est plein, ou si c'est une pente pleine de ce côté
+	# (side : le côté du voisin tourné vers le mur, t b l r)
+	var covers := func(x: int, y: int, side: String) -> bool:
+		if looks_solid.call(x, y):
+			return true
+		if x < 0 or x >= w or y < 0 or y >= h:
+			return false
+		var n: String = grid[y][x]
+		return Slopes.is_slope(n) and side in Slopes.COVERS[n]
 
 	var drawer := TilesDrawer.new()
 	drawer.wall = Palette.wall(colors)
@@ -428,8 +438,8 @@ func _load_level(index: int) -> void:
 					var down: bool = not is_solid.call(x, y + 1)
 					var left: bool = not is_solid.call(x - 1, y)
 					var right: bool = not is_solid.call(x + 1, y)
-					var rims := [cell, not looks_solid.call(x, y - 1), not looks_solid.call(x, y + 1),
-						not looks_solid.call(x - 1, y), not looks_solid.call(x + 1, y)]
+					var rims := [cell, not covers.call(x, y - 1, "b"), not covers.call(x, y + 1, "t"),
+						not covers.call(x - 1, y, "r"), not covers.call(x + 1, y, "l")]
 					if c == "#":
 						drawer.solids.append(cell)
 						if rims.has(true):
@@ -444,6 +454,19 @@ func _load_level(index: int) -> void:
 						poly.polygon = PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)])
 						occ.occluder = poly
 						occluders.add_child(occ)
+				"j", "k", "u", "n", "c", "d", "f", "h", "l", "m", "o", "s":
+					# Pente : collision en biais, ombre un peu en retrait comme les murs
+					drawer.slopes.append([cell, c])
+					var slope_body := CollisionPolygon2D.new()
+					slope_body.polygon = Slopes.shape(c, base)
+					body.add_child(slope_body)
+					var inset := Geometry2D.offset_polygon(Slopes.shape(c, base), -3.0)
+					if not inset.is_empty():
+						var socc := LightOccluder2D.new()
+						var spoly := OccluderPolygon2D.new()
+						spoly.polygon = inset[0]
+						socc.occluder = spoly
+						occluders.add_child(socc)
 				"^", "v", "<", ">":
 					drawer.spikes.append([cell, c])
 					_add_spike(base, c)

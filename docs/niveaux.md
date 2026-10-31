@@ -90,6 +90,22 @@ Seuls les coins saillants sont arrondis ; les collisions restent carrées.
 Pour retoucher leur dessin : `tools/make_murs.py` (l'icône dans l'éditeur, et la source
 « Murs » de `levels/tiles.tres`) et `_draw_shaped` dans `scripts/tiles_drawer.gd` (le jeu).
 
+### Les pentes
+
+La dernière rangée de `murs.png` : des pentes pleines, en gris avec un liseré le long du biais.
+Elles se posent une par une depuis l'onglet **Tuiles** (pas les terrains) :
+
+- **Raides (45°)** : une tuile. Sol qui monte vers la droite, vers la gauche, puis les mêmes
+  au plafond.
+- **Douces** : une case de haut pour deux de long, donc deux tuiles côte à côte, la moitié
+  basse puis la moitié haute (dans l'ordre de la palette). Au sol et au plafond.
+
+Le fantôme y court à vitesse constante et reste collé en descente ; on ne peut pas s'y
+accrocher en wall jump (seules les parois verticales comptent comme murs), et le dash glisse
+le long du biais. Un mur collé au côté plein d'une pente ne montre pas de liseré de ce côté.
+
+![Pentes](../captures/pentes.png)
+
 ## Les indices
 
 - Pour ajouter un indice : sélectionne **Indices**, puis *Instancier une scène enfant*

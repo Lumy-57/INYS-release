@@ -61,6 +61,12 @@ var trail: CPUParticles2D
 
 
 func _ready() -> void:
+	# Pentes (scripts/slopes.gd) : on y court à vitesse constante et on reste collé en descente ;
+	# 45° compte encore comme du sol
+	floor_max_angle = deg_to_rad(46.0)
+	floor_constant_speed = true
+	floor_snap_length = 5.0
+
 	var shape := CollisionShape2D.new()
 	var rect := RectangleShape2D.new()
 	rect.size = Vector2(10, 14)
@@ -265,11 +271,12 @@ func _wall_jump(wall_dir: int) -> void:
 	jumped.emit()
 
 
+# Seule une paroi verticale compte comme mur : une pente ne se grimpe pas en wall jump
 func _wall_dir() -> int:
-	if test_move(global_transform, Vector2(WALL_CHECK, 0)):
-		return 1
-	if test_move(global_transform, Vector2(-WALL_CHECK, 0)):
-		return -1
+	for d: int in [1, -1]:
+		var hit := move_and_collide(Vector2(WALL_CHECK * d, 0), true)
+		if hit and absf(hit.get_normal().x) > 0.9:
+			return d
 	return 0
 
 
@@ -314,6 +321,14 @@ func _spawn_afterimage() -> void:
 
 func _process(delta: float) -> void:
 	visual.scale = visual.scale.lerp(Vector2.ONE, 1.0 - exp(-14.0 * delta))
+	# Sur une pente, la boîte du fantôme ne touche que par un coin : on descend le dessin
+	# d'autant pour qu'il pose bien sur le biais
+	var sink := 0.0
+	if is_on_floor() and not dead:
+		var n := get_floor_normal()
+		if absf(n.y) > 0.1:
+			sink = 5.0 * absf(n.x / n.y)
+	visual.position.y = lerpf(visual.position.y, -1.0 + sink, 1.0 - exp(-25.0 * delta))
 	visual.facing = facing
 	visual.gaze = velocity / 180.0
 	visual.idle = visual.idle + delta if velocity.length() < 1.0 and not dead else 0.0

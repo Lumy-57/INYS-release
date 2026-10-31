@@ -1,8 +1,9 @@
 # Génère levels/murs.png et la source « Murs taillés » de levels/tiles.tres : les murs aux coins
 # arrondis (r roche), biseautés (t pierre taillée) ou enneigés (g givre). Une rangée par style,
 # 16 tuiles par rangée : une par combinaison de voisins (haut, droite, bas, gauche), pour le
-# remplissage automatique de Godot (terrains, « Match Sides »). Le rendu en jeu est fait par
-# scripts/tiles_drawer.gd, qui suit les mêmes formes.
+# remplissage automatique de Godot (terrains, « Match Sides »). La dernière rangée : les pentes,
+# dans l'ordre de scripts/slopes.gd. Le rendu en jeu est fait par scripts/tiles_drawer.gd, qui
+# suit les mêmes formes.
 #   python3 tools/make_murs.py levels/murs.png levels/tiles.tres
 import math
 import re
@@ -17,6 +18,15 @@ RIM = (242, 242, 242, 255)
 DARK = (64, 64, 64, 255)
 LIGHT = (98, 98, 98, 255)
 RIM_W = 2
+# Les pentes, comme SHAPES dans scripts/slopes.gd (même ordre : SLOPE_CHARS de levels/level.gd)
+SLOPES = [
+    [(0, 16), (16, 0), (16, 16)], [(0, 0), (16, 16), (0, 16)],
+    [(0, 0), (16, 0), (16, 16)], [(0, 0), (16, 0), (0, 16)],
+    [(0, 16), (16, 8), (16, 16)], [(0, 8), (16, 0), (16, 16), (0, 16)],
+    [(0, 0), (16, 8), (16, 16), (0, 16)], [(0, 8), (16, 16), (0, 16)],
+    [(0, 0), (16, 0), (16, 8)], [(0, 0), (16, 0), (16, 16), (0, 8)],
+    [(0, 0), (16, 0), (16, 8), (0, 16)], [(0, 0), (16, 0), (0, 8)],
+]
 
 
 def shape(x0, y0, x1, y1, corners, radius, bevel):
@@ -36,21 +46,24 @@ def shape(x0, y0, x1, y1, corners, radius, bevel):
     return pts
 
 
+def inside(pts, cx, cy):
+    res = False
+    j = len(pts) - 1
+    for i in range(len(pts)):
+        (xi, yi), (xj, yj) = pts[i], pts[j]
+        if (yi > cy) != (yj > cy) and cx < (xj - xi) * (cy - yi) / (yj - yi) + xi:
+            res = not res
+        j = i
+    return res
+
+
 def fill(d, pts, color):
     # Remplit les pixels dont le centre est dans le polygone (comme le rendu en jeu)
     xs = [p[0] for p in pts]
     ys = [p[1] for p in pts]
     for py in range(int(min(ys)), int(max(ys)) + 1):
         for px in range(int(min(xs)), int(max(xs)) + 1):
-            cx, cy = px + 0.5, py + 0.5
-            inside = False
-            j = len(pts) - 1
-            for i in range(len(pts)):
-                (xi, yi), (xj, yj) = pts[i], pts[j]
-                if (yi > cy) != (yj > cy) and cx < (xj - xi) * (cy - yi) / (yj - yi) + xi:
-                    inside = not inside
-                j = i
-            if inside:
+            if inside(pts, px + 0.5, py + 0.5):
                 d.point((px, py), fill=color)
 
 
@@ -89,8 +102,29 @@ def tile(d, x, y, kind, up, right, down, left):
                 d.point((x + px, y + py), fill=LIGHT)
 
 
+def slope(d, x, y, pts):
+    poly = [(x + px, y + py) for px, py in pts]
+    fill(d, poly, WALL)
+    cx = sum(p[0] for p in poly) / len(poly)
+    cy = sum(p[1] for p in poly) / len(poly)
+    # Liseré le long du biais : les pixels du polygone à moins de 2 px de l'arête en biais
+    for i in range(len(poly)):
+        (ax, ay), (bx, by) = poly[i], poly[(i + 1) % len(poly)]
+        if ax == bx or ay == by:
+            continue
+        ln = math.hypot(bx - ax, by - ay)
+        nx, ny = (ay - by) / ln, (bx - ax) / ln
+        if nx * (cx - ax) + ny * (cy - ay) < 0:
+            nx, ny = -nx, -ny
+        band = [(ax, ay), (bx, by), (bx + nx * RIM_W, by + ny * RIM_W), (ax + nx * RIM_W, ay + ny * RIM_W)]
+        for py in range(y, y + T):
+            for px in range(x, x + T):
+                if inside(poly, px + 0.5, py + 0.5) and inside(band, px + 0.5, py + 0.5):
+                    d.point((px, py), fill=RIM)
+
+
 def main(png, tres):
-    img = Image.new("RGBA", (16 * T, len(STYLES) * T), (0, 0, 0, 0))
+    img = Image.new("RGBA", (16 * T, (len(STYLES) + 1) * T), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     lines = []
     for row, (kind, _, _) in enumerate(STYLES):
@@ -105,6 +139,10 @@ def main(png, tres):
             for b, side in enumerate(["top_side", "right_side", "bottom_side", "left_side"]):
                 if linked[b]:
                     lines.append("%s/terrains_peering_bit/%s = %d" % (key, side, row))
+    row = len(STYLES)
+    for i, pts in enumerate(SLOPES):
+        slope(d, i * T, row * T, pts)
+        lines.append("%d:%d/0 = 0" % (i, row))
     img.save(png)
 
     # La source 1 de levels/tiles.tres, et l'ensemble de terrains qui la remplit

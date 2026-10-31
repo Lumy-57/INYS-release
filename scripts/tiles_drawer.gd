@@ -1,14 +1,17 @@
 # Dessine les murs (gris, liseré clair sur les bords exposés) et les cristaux (pics).
 # Les murs taillés (r roche, t pierre taillée, g givre) arrondissent ou biseautent leurs coins
 # saillants et portent un relief discret, dans les mêmes gris que les murs.
+# Les pentes (scripts/slopes.gd) sont pleines, avec un liseré le long de leur biais.
 extends Node2D
 
+const Slopes = preload("res://scripts/slopes.gd")
 const TILE := 16
 const RIM_W := 2.0
 
 var solids: Array = []   # Array de Vector2i
 var edges: Array = []    # [Vector2i, haut, bas, gauche, droite] exposés
 var shaped: Array = []   # [Vector2i, caractère, haut, bas, gauche, droite] exposés
+var slopes: Array = []   # [Vector2i, caractère]
 var spikes: Array = []   # [Vector2i, char]
 var wall := Color(0.32, 0.32, 0.32)  # teintés dans l'épilogue (palette.gd)
 var rim := Color(0.95, 0.95, 0.95)
@@ -25,6 +28,8 @@ func _draw() -> void:
 		if e[4]: draw_rect(Rect2(p + Vector2(TILE - 2, 0), Vector2(2, TILE)), rim)
 	for t in shaped:
 		_draw_shaped(t)
+	for sl in slopes:
+		_draw_slope(sl[0], sl[1])
 	for s in spikes:
 		_draw_spikes(Vector2(s[0]) * TILE, s[1])
 
@@ -167,3 +172,23 @@ func _shape(r: Rect2, corners: Array, radius: float, bevel: bool) -> PackedVecto
 			var a := start + PI * 0.5 * k / steps
 			pts.append(o + Vector2(cos(a), sin(a)) * radius)
 	return pts
+
+
+# Une pente : pleine, et un liseré de la largeur de celui des murs le long du biais
+func _draw_slope(cell: Vector2i, c: String) -> void:
+	var o := Vector2(cell) * TILE
+	var poly := Slopes.shape(c, o)
+	draw_colored_polygon(poly, wall)
+	var center := Vector2.ZERO
+	for p in poly:
+		center += p
+	center /= poly.size()
+	for e in Slopes.slants(c, o):
+		var a: Vector2 = e[0]
+		var b: Vector2 = e[1]
+		var n := (b - a).orthogonal().normalized()
+		if n.dot(center - a) < 0.0:
+			n = -n
+		var band := PackedVector2Array([a, b, b + n * RIM_W, a + n * RIM_W])
+		for piece in Geometry2D.intersect_polygons(band, poly):
+			draw_colored_polygon(piece, rim)
