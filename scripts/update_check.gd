@@ -7,8 +7,8 @@ extends Node
 
 signal found(version: String, url: String)
 
-const API := "https://api.github.com/repos/leobeerens57/INYS-release/releases?per_page=20"
-const RELEASES_PAGE := "https://github.com/leobeerens57/INYS-release/releases"
+const API := "https://api.github.com/repos/Lumy-57/INYS-release/releases?per_page=20"
+const RELEASES_PAGE := "https://github.com/Lumy-57/INYS-release/releases"
 
 var latest := ""  # version plus récente trouvée, vide sinon
 var url := ""
