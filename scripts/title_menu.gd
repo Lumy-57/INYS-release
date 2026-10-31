@@ -20,7 +20,7 @@ var index := 0
 var chapter := 0
 var active := false
 var watching_credits := false
-var report_open := false  # « Signaler » déplié en « un bug » / « une remarque »
+var report_open := false  # « Signaler » déplié en « un bug » / « une remarque » / « sans compte »
 var opened_frame := -1
 var credits: CanvasLayer
 
@@ -71,8 +71,10 @@ func _items() -> Array:
 	items.append(["credits", "Crédits"])
 	items.append(["options", "Options"])
 	if report_open:
-		items.append(["report_bug", "Signaler · un bug"])
-		items.append(["report_note", "Signaler · une remarque"])
+		items.append(["report_bug", "Signaler · un bug (GitHub)"])
+		items.append(["report_note", "Signaler · une remarque (GitHub)"])
+		if BugReport.has_form():
+			items.append(["report_form", "Signaler · sans compte GitHub"])
 	else:
 		items.append(["report", "Signaler un bug / une remarque"])
 	if main.update_check and main.update_check.latest != "":
@@ -144,6 +146,8 @@ func _process(_delta: float) -> void:
 				BugReport.open("bug", main.save.last_level())
 			"report_note":
 				BugReport.open("remarque", main.save.last_level())
+			"report_form":
+				BugReport.open_form(main.save.last_level())
 			"update":
 				main.update_check.open_page()
 			"quit":
@@ -155,21 +159,25 @@ func _process(_delta: float) -> void:
 	redraw()
 
 
-# Quitter les deux entrées « Signaler · … » (ou Échap) les replie en une seule
+# Quitter les entrées « Signaler · … » (ou Échap) les replie en une seule
 func _fold_report(force := false) -> void:
 	if not report_open:
 		return
-	var kind: String = _items()[index][0]
-	if not force and kind.begins_with("report_"):
+	var items := _items()
+	if not force and items[index][0].begins_with("report_"):
 		return
-	var first := 0
-	for i in _items().size():
-		if _items()[i][0] == "report_bug":
-			first = i
-			break
+	var first := -1
+	var count := 0
+	for i in items.size():
+		if items[i][0].begins_with("report_"):
+			if first < 0:
+				first = i
+			count += 1
 	report_open = false
-	if force or index > first + 1:
-		index = first if force else index - 1
+	if force:
+		index = first
+	elif index >= first + count:
+		index -= count - 1
 
 
 # La réponse de GitHub arrive après l'ouverture du menu : l'entrée « Nouvelle version »
