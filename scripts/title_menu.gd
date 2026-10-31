@@ -1,5 +1,5 @@
 # Menu de l'écran titre : continuer, nouvelle partie, choix du niveau, statistiques, crédits, options,
-# nouvelle version (si update_check.gd en a trouvé une), quitter.
+# signaler (un bug ou une remarque, voir bug_report.gd), nouvelle version (si update_check.gd en a trouvé une), quitter.
 # Les niveaux sont regroupés par chapitres : les niveaux consécutifs de même clé "chapter".
 extends Node
 
@@ -13,12 +13,14 @@ const LevelData = preload("res://scripts/level_data.gd")
 const Looks = preload("res://scripts/looks.gd")
 const Credits = preload("res://scripts/credits.gd")
 const Lore = preload("res://scripts/lore.gd")
+const BugReport = preload("res://scripts/bug_report.gd")
 
 var main: Node
 var index := 0
 var chapter := 0
 var active := false
 var watching_credits := false
+var report_open := false  # « Signaler » déplié en « un bug » / « une remarque »
 var opened_frame := -1
 var credits: CanvasLayer
 
@@ -68,6 +70,11 @@ func _items() -> Array:
 	items.append(["stats", "Statistiques"])
 	items.append(["credits", "Crédits"])
 	items.append(["options", "Options"])
+	if report_open:
+		items.append(["report_bug", "Signaler · un bug"])
+		items.append(["report_note", "Signaler · une remarque"])
+	else:
+		items.append(["report", "Signaler un bug / une remarque"])
 	if main.update_check and main.update_check.latest != "":
 		items.append(["update", "Nouvelle version · v%s" % main.update_check.latest])
 	items.append(["quit", "Quitter"])
@@ -79,6 +86,7 @@ func open() -> void:
 	# Depuis la pause, la touche qui ramène au titre ne doit pas aussi lancer une partie
 	opened_frame = Engine.get_process_frames()
 	index = 0
+	report_open = false
 	chapter = chapter_of(main.save.last_level())
 	redraw()
 
@@ -108,8 +116,12 @@ func _process(_delta: float) -> void:
 	var kind: String = items[index][0]
 	if Input.is_action_just_pressed("up"):
 		index = posmod(index - 1, items.size())
+		_fold_report()
 	elif Input.is_action_just_pressed("down"):
 		index = posmod(index + 1, items.size())
+		_fold_report()
+	elif Input.is_action_just_pressed("pause") and report_open:
+		_fold_report(true)
 	elif Input.is_action_just_pressed("jump"):
 		match kind:
 			"continue":
@@ -126,6 +138,12 @@ func _process(_delta: float) -> void:
 				_play_credits()
 			"options":
 				open_options.emit()
+			"report":
+				report_open = true
+			"report_bug":
+				BugReport.open("bug", main.save.last_level())
+			"report_note":
+				BugReport.open("remarque", main.save.last_level())
 			"update":
 				main.update_check.open_page()
 			"quit":
@@ -135,6 +153,23 @@ func _process(_delta: float) -> void:
 		return
 	main.sfx.play("land", 0.0)
 	redraw()
+
+
+# Quitter les deux entrées « Signaler · … » (ou Échap) les replie en une seule
+func _fold_report(force := false) -> void:
+	if not report_open:
+		return
+	var kind: String = _items()[index][0]
+	if not force and kind.begins_with("report_"):
+		return
+	var first := 0
+	for i in _items().size():
+		if _items()[i][0] == "report_bug":
+			first = i
+			break
+	report_open = false
+	if force or index > first + 1:
+		index = first if force else index - 1
 
 
 # La réponse de GitHub arrive après l'ouverture du menu : l'entrée « Nouvelle version »
