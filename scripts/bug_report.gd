@@ -11,7 +11,7 @@ const NEW_ISSUE := "https://github.com/Lumy-57/INYS-release/issues/new"
 # et numéros des champs « entry.… » lus dans son lien prérempli : un champ par information,
 # ou un seul champ « infos » qui reçoit « niveau · version · plateforme ».
 # Tant que FORM_URL est vide, l'entrée « sans compte GitHub » n'apparaît pas.
-const FORM_URL := ""
+const FORM_URL := "https://docs.google.com/forms/d/e/1FAIpQLScYBQNDAUbqwGw1TGen7ovSKAO1_1VMtP3Ywvd_S0RA077jtQ/viewform"
 const FORM_ENTRIES := {
 	"infos": "",
 	"niveau": "",
