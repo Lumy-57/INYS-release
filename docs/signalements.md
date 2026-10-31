@@ -26,6 +26,9 @@ niveau joué sont remplis d'avance.
    `P` dans Plateforme, puis « Obtenir le lien » et le copier. Il ressemble à :
 
    ```
+
+   Variante : un seul champ réponse courte pour les trois (par exemple « Level - Game Version - Platform »).
+   Le jeu y écrit `3 · Le seuil (Chapitre) · v0.1.0 · Windows · 1920×1080` ; son numéro va dans `"infos"`.
    https://docs.google.com/forms/d/e/1FAIpQL.../viewform?usp=pp_url&entry.111=N&entry.222=V&entry.333=P
    ```
 

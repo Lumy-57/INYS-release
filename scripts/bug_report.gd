@@ -8,10 +8,12 @@ const LevelData = preload("res://scripts/level_data.gd")
 const NEW_ISSUE := "https://github.com/Lumy-57/INYS-release/issues/new"
 
 # Formulaire Google (voir docs/signalements.md) : lien du formulaire, terminé par /viewform,
-# et numéros des champs « entry.… » lus dans son lien prérempli.
+# et numéros des champs « entry.… » lus dans son lien prérempli : un champ par information,
+# ou un seul champ « infos » qui reçoit « niveau · version · plateforme ».
 # Tant que FORM_URL est vide, l'entrée « sans compte GitHub » n'apparaît pas.
 const FORM_URL := ""
 const FORM_ENTRIES := {
+	"infos": "",
 	"niveau": "",
 	"version": "",
 	"plateforme": "",
@@ -32,6 +34,7 @@ static func has_form() -> bool:
 static func open_form(last_level: int) -> void:
 	var fields := {"usp": "pp_url"}
 	var context := _context(last_level)
+	context["infos"] = "%s · v%s · %s" % [context.get("niveau", "?"), context["version"], context["plateforme"]]
 	for key in context:
 		if FORM_ENTRIES.get(key, "") != "":
 			fields["entry." + FORM_ENTRIES[key]] = context[key]
