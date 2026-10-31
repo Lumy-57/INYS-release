@@ -63,6 +63,49 @@ règles n'ont pas changé :
   face B du chapitre.
 - **Étincelle `*`** : une par niveau ; elle ouvre le fragment du journal de ce niveau.
 
+### Les murs taillés : roche, pierre taillée, givre
+
+Pour casser l'effet « cubes », trois murs de plus, toujours en gris et blanc. Ils sont solides
+et font de l'ombre exactement comme le mur `#` ; seul leur dessin change :
+
+- **Roche `r`** : coins saillants arrondis, quelques grains et fêlures ;
+- **Pierre taillée `t`** : coins biseautés, joints de briques décalés ;
+- **Givre `g`** : coins arrondis, une couche de neige qui coule en gouttes sur le dessus.
+
+Ils sont dans le deuxième atlas de la palette (`murs.png`, à côté de la palette habituelle).
+Le plus simple est de les peindre avec les terrains, pour que Godot choisisse tout seul les
+bons bords et les bons coins :
+
+1. Sélectionne **Carte**, puis l'onglet **Terrains** du panneau TileMap (à côté de « Tuiles »).
+2. Choisis « Roche », « Pierre taillée » ou « Givre », et peins (Ligne, Rectangle et Seau
+   marchent aussi). Les cases voisines se raccordent d'elles-mêmes ; clic droit pour effacer.
+
+Peu importe la tuile exacte posée : en jeu, chaque case de mur taillé recalcule ses bords à
+partir de ses voisins, et ses grains et gouttes varient d'une case à l'autre. On peut les
+mélanger entre eux et avec `#` : deux murs qui se touchent ne se séparent pas d'un liseré.
+Seuls les coins saillants sont arrondis ; les collisions restent carrées.
+
+![Murs taillés](../captures/murs_tailles.png)
+
+Pour retoucher leur dessin : `tools/make_murs.py` (l'icône dans l'éditeur, et la source
+« Murs » de `levels/tiles.tres`) et `_draw_shaped` dans `scripts/tiles_drawer.gd` (le jeu).
+
+### Les pentes
+
+La dernière rangée de `murs.png` : des pentes pleines, en gris avec un liseré le long du biais.
+Elles se posent une par une depuis l'onglet **Tuiles** (pas les terrains) :
+
+- **Raides (45°)** : une tuile. Sol qui monte vers la droite, vers la gauche, puis les mêmes
+  au plafond.
+- **Douces** : une case de haut pour deux de long, donc deux tuiles côte à côte, la moitié
+  basse puis la moitié haute (dans l'ordre de la palette). Au sol et au plafond.
+
+Le fantôme y court à vitesse constante et reste collé en descente ; on ne peut pas s'y
+accrocher en wall jump (seules les parois verticales comptent comme murs), et le dash glisse
+le long du biais. Un mur collé au côté plein d'une pente ne montre pas de liseré de ce côté.
+
+![Pentes](../captures/pentes.png)
+
 ## Les indices
 
 - Pour ajouter un indice : sélectionne **Indices**, puis *Instancier une scène enfant*
