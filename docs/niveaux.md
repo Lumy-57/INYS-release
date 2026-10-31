@@ -19,7 +19,7 @@ Niveau        (Node2D, script levels/level.gd) : nom, chapitre, options dans l'I
 ```
 
 Dans l'éditeur, un cadre orange montre le contour de la salle et un cadre blanc pâle la taille
-d'un écran (480 × 270) depuis le coin en haut à gauche. Les indices affichent leur texte à côté
+d'un écran (480 × 270) depuis son coin en haut à gauche. Les indices affichent leur texte à côté
 de leur case. Un panneau d'avertissement (triangle jaune sur « Niveau ») signale un niveau sans
 nom, sans départ `P` (ou avec plusieurs), sans sortie `E`, ou des tuiles hors de la salle.
 
@@ -42,10 +42,14 @@ Une case vide (rien de peint) est du vide, comme l'ancien `.`.
 Chaque tuile correspond à un caractère de l'ancien format texte (entre parenthèses), et les
 règles n'ont pas changé :
 
-- **Salle** : elle commence en (0, 0), le coin en haut à gauche. Les côtés et le plafond hors
-  de la salle comptent comme des murs ; sous la dernière rangée, c'est la chute. La taille de
-  la salle est la plus petite qui contient toutes les tuiles ; pour la forcer (par exemple un
-  fond ouvert), remplis **Room Size** sur le nœud Niveau.
+- **Salle** : le cadre orange. Par défaut, c'est le plus petit rectangle qui contient toutes
+  les tuiles peintes : tu peux agrandir un niveau dans tous les sens, même au-dessus ou à
+  gauche de l'origine du nœud, et la caméra suit toute seule. Pour choisir toi-même le coin,
+  décoche **Auto Corner** (groupe « Salle » du nœud Niveau) et règle **Room Corner** : la case
+  du coin en haut à gauche, comptée depuis la croix rouge de l'origine (case (0, 0), une case
+  = 16 px ; (0, -8) est 8 cases au-dessus). **Room Size** fixe la taille depuis ce coin, (0, 0) : jusqu'aux dernières
+  tuiles. Les côtés et le plafond hors de la salle comptent comme des murs ; sous la dernière
+  rangée, c'est la chute ; les tuiles hors du cadre sont ignorées.
 - **Départ `P`** : un seul par niveau, le fantôme apparaît sur cette case.
 - **Bougie `C`, ressort `S`, sortie `E`** : posés sur le sol, dans la case juste au-dessus.
 - **Plateformes mobiles `M` / `W`** : une plateforme de plusieurs cases se peint en plusieurs
@@ -78,7 +82,8 @@ règles n'ont pas changé :
 | **Bside** / **Line** | Face B du chapitre, et sa phrase sur la carte d'ouverture. |
 | **Epilogue** / **Colors** | Niveau de l'épilogue, et sa teinte de 0 (noir et blanc) à 1. |
 | **Companion** | L'ombre `H` marche avec le fantôme sans le toucher. |
-| **Room Size** | Taille de la salle en cases ; (0, 0) : automatique. |
+| **Auto Corner** / **Room Corner** | Coin en haut à gauche de la salle : automatique (tuile la plus en haut à gauche), ou la case choisie. |
+| **Room Size** | Taille de la salle en cases depuis son coin ; (0, 0) : automatique. |
 
 ## Ajouter un niveau
 
