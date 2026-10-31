@@ -23,6 +23,7 @@
 #  i pierre cachée : invisible, n'apparaît et ne porte que près de la petite orbe
 #  e sortie secrète : une seule par chapitre, elle ouvre la face B du chapitre
 #  % fausse paroi : a l'air d'un mur, mais on passe au travers (cache les sorties secrètes)
+#  r t g murs taillés (roche, pierre taillée, givre) : solides comme #, coins arrondis ou biseautés
 extends RefCounted
 
 const LIST = preload("res://levels/list.tres")

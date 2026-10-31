@@ -63,6 +63,33 @@ règles n'ont pas changé :
   face B du chapitre.
 - **Étincelle `*`** : une par niveau ; elle ouvre le fragment du journal de ce niveau.
 
+### Les murs taillés : roche, pierre taillée, givre
+
+Pour casser l'effet « cubes », trois murs de plus, toujours en gris et blanc. Ils sont solides
+et font de l'ombre exactement comme le mur `#` ; seul leur dessin change :
+
+- **Roche `r`** : coins saillants arrondis, quelques grains et fêlures ;
+- **Pierre taillée `t`** : coins biseautés, joints de briques décalés ;
+- **Givre `g`** : coins arrondis, une couche de neige qui coule en gouttes sur le dessus.
+
+Ils sont dans le deuxième atlas de la palette (`murs.png`, à côté de la palette habituelle).
+Le plus simple est de les peindre avec les terrains, pour que Godot choisisse tout seul les
+bons bords et les bons coins :
+
+1. Sélectionne **Carte**, puis l'onglet **Terrains** du panneau TileMap (à côté de « Tuiles »).
+2. Choisis « Roche », « Pierre taillée » ou « Givre », et peins (Ligne, Rectangle et Seau
+   marchent aussi). Les cases voisines se raccordent d'elles-mêmes ; clic droit pour effacer.
+
+Peu importe la tuile exacte posée : en jeu, chaque case de mur taillé recalcule ses bords à
+partir de ses voisins, et ses grains et gouttes varient d'une case à l'autre. On peut les
+mélanger entre eux et avec `#` : deux murs qui se touchent ne se séparent pas d'un liseré.
+Seuls les coins saillants sont arrondis ; les collisions restent carrées.
+
+![Murs taillés](../captures/murs_tailles.png)
+
+Pour retoucher leur dessin : `tools/make_murs.py` (l'icône dans l'éditeur, et la source
+« Murs » de `levels/tiles.tres`) et `_draw_shaped` dans `scripts/tiles_drawer.gd` (le jeu).
+
 ## Les indices
 
 - Pour ajouter un indice : sélectionne **Indices**, puis *Instancier une scène enfant*

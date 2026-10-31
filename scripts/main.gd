@@ -48,6 +48,8 @@ const UpdateCheck = preload("res://scripts/update_check.gd")
 
 const AMBIENT := Color(0.09, 0.09, 0.09)
 const RIM := 4.0  # liseré non occultant : les bords des murs captent la lumière
+# Cases pleines : mur, vitre, et murs taillés (r roche, t pierre taillée, g givre)
+const SOLID_CHARS := ["#", "=", "r", "t", "g"]
 
 var level_index := 0
 var world: Node2D
@@ -352,7 +354,7 @@ func _load_level(index: int) -> void:
 			return true
 		if y >= h:
 			return false
-		return grid[y][x] == "#" or grid[y][x] == "="
+		return grid[y][x] in SOLID_CHARS
 
 	# Pour le dessin, les fausses parois (et la sortie secrète qu'elles cachent) comptent comme
 	# des murs : aucun liseré ne les trahit
@@ -421,16 +423,19 @@ func _load_level(index: int) -> void:
 				if fake_rims.has(true):
 					fake.edges.append(fake_rims)
 			match c:
-				"#":
-					drawer.solids.append(cell)
+				"#", "r", "t", "g":
 					var up: bool = not is_solid.call(x, y - 1)
 					var down: bool = not is_solid.call(x, y + 1)
 					var left: bool = not is_solid.call(x - 1, y)
 					var right: bool = not is_solid.call(x + 1, y)
 					var rims := [cell, not looks_solid.call(x, y - 1), not looks_solid.call(x, y + 1),
 						not looks_solid.call(x - 1, y), not looks_solid.call(x + 1, y)]
-					if rims.has(true):
-						drawer.edges.append(rims)
+					if c == "#":
+						drawer.solids.append(cell)
+						if rims.has(true):
+							drawer.edges.append(rims)
+					else:  # murs taillés : coins arrondis ou biseautés (tiles_drawer.gd)
+						drawer.shaped.append([cell, c] + rims.slice(1))
 					if up or down or left or right:
 						var r := Rect2(base, Vector2(TILE, TILE))
 						r = r.grow_individual(-RIM if left else 0.0, -RIM if up else 0.0, -RIM if right else 0.0, -RIM if down else 0.0)
