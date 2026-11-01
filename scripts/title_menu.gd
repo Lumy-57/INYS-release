@@ -142,7 +142,10 @@ func _process(_delta: float) -> void:
 			"options":
 				open_options.emit()
 			"report":
+				# Le match se termine par un return : on redessine ici pour voir les choix tout de suite
 				report_open = true
+				main.sfx.play("land", 0.0)
+				redraw()
 			"report_bug":
 				BugReport.open("bug", main.save.last_level())
 			"report_note":
