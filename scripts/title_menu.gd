@@ -71,12 +71,13 @@ func _items() -> Array:
 	items.append(["credits", "Crédits"])
 	items.append(["options", "Options"])
 	if report_open:
-		items.append(["report_bug", "Signaler · un bug (GitHub)"])
-		items.append(["report_note", "Signaler · une remarque (GitHub)"])
+		# Le formulaire d'abord : il marche pour tout le monde, sans compte
 		if BugReport.has_form():
-			items.append(["report_form", "Signaler · sans compte GitHub"])
+			items.append(["report_form", "Signaler · formulaire, sans compte"])
+		items.append(["report_bug", "Signaler · un bug sur GitHub"])
+		items.append(["report_note", "Signaler · une remarque sur GitHub"])
 	else:
-		items.append(["report", "Signaler un bug / une remarque"])
+		items.append(["report", "Signaler un bug / une remarque  ›"])
 	if main.update_check and main.update_check.latest != "":
 		items.append(["update", "Nouvelle version · v%s" % main.update_check.latest])
 	items.append(["quit", "Quitter"])
