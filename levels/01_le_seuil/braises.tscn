@@ -1,7 +1,7 @@
-[gd_scene format=4]
+[gd_scene format=4 uid="uid://p65sr4v71sh0"]
 
-[ext_resource type="Script" path="res://levels/level.gd" id="1_ily0k"]
-[ext_resource type="TileSet" path="res://levels/tiles.tres" id="2_p34fa"]
+[ext_resource type="Script" uid="uid://cyt4rquponiwn" path="res://levels/level.gd" id="1_ily0k"]
+[ext_resource type="TileSet" uid="uid://d3nnj8phlsnhn" path="res://levels/tiles.tres" id="2_p34fa"]
 [ext_resource type="PackedScene" path="res://levels/hint.tscn" id="3_88fkl"]
 
 [node name="Niveau" type="Node2D" unique_id=326535781]
@@ -16,14 +16,14 @@ tile_set = ExtResource("2_p34fa")
 
 [node name="Indices" type="Node2D" parent="." unique_id=2016216778]
 
-[node name="Indice" type="Node2D" parent="Indices" unique_id=1074578526 instance=ExtResource("3_88fkl")]
-position = Vector2(40, 200)
+[node name="Indice" parent="Indices" unique_id=1074578526 instance=ExtResource("3_88fkl")]
+position = Vector2(40, 236)
 text = "Saute, puis {dash} :"
 
-[node name="Indice2" type="Node2D" parent="Indices" unique_id=305284984 instance=ExtResource("3_88fkl")]
-position = Vector2(40, 216)
+[node name="Indice2" parent="Indices" unique_id=305284984 instance=ExtResource("3_88fkl")]
+position = Vector2(40, 246)
 text = "le vide est plus court"
 
-[node name="Indice3" type="Node2D" parent="Indices" unique_id=927843393 instance=ExtResource("3_88fkl")]
+[node name="Indice3" parent="Indices" unique_id=927843393 instance=ExtResource("3_88fkl")]
 position = Vector2(456, 104)
 text = "Un cristal, un dash de plus"
