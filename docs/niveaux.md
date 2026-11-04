@@ -63,6 +63,15 @@ règles n'ont pas changé :
 - **Sortie secrète `e`** : une par chapitre, cachée sous des fausses parois `%`. Elle ouvre la
   face B du chapitre.
 - **Étincelle `*`** : une par niveau ; elle ouvre le fragment du journal de ce niveau.
+- **Courants d'air `|` `_` `(` `)`** : une zone (peinte en autant de tuiles qu'on veut) qui
+  pousse le fantôme tant qu'il est dedans, vers le haut, le bas, la gauche ou la droite (la
+  flèche de l'icône). Vers le haut, il le soulève ; vers le bas, il le plaque plus vite qu'une
+  chute ; de côté, il l'emporte au sol comme en l'air, et on avance à peine contre lui.
+  Le dash passe à travers sans être dévié.
+- **Zéro gravité `0`** (voile pointillé à l'éclair) : dedans, le fantôme ne tombe plus et
+  flotte sur son élan, qui s'éteint doucement ; son dash se recharge dès qu'il est fini, même
+  en l'air (c'est la seule exception à « le dash ne revient qu'au sol »). On peut donc y
+  enchaîner les dashes pour traverser ou ressortir dans n'importe quelle direction.
 
 ## Plusieurs éléments sur une même case
 

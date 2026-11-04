@@ -93,8 +93,11 @@ toujours le fantôme. Touches gardées dans `user://save/controls.cfg`.
 - **Pierres cachées** (`i`) : invisibles et traversables dans le noir. Elles apparaissent et portent
   le fantôme quand la petite orbe passe à moins de 40 px (22 px autour du fantôme lui-même), puis
   s'effacent 0,9 s après. On les traverse par en dessous. Une pierre déjà vue garde un trait pâle.
-  Dans ce chapitre, l'orbe éclaire plus fort et, à chaque dash, file 84 px devant dans la direction
-  du dash pendant une demi-seconde : c'est elle qui montre où atterrir.
+  Dans ce chapitre, l'orbe éclaire plus fort et ne tourne plus autour du fantôme : elle se promène
+  34 px devant lui, du côté où il regarde, et prend jusqu'à 30 px d'avance de plus quand il court
+  (ou descend quand il tombe) ; quand il se retourne, elle passe par-dessus sa tête. À chaque dash,
+  elle file 84 px devant dans la direction du dash pendant une demi-seconde : c'est elle qui montre
+  où atterrir.
 - **Éléments** : pics (mort instantanée), bougies (checkpoints qui s'allument),
   cristaux (rechargent le dash, réapparaissent après 2,5 s), faille de lumière (sortie).
 - **Rendu** : CanvasModulate presque noir, PointLight2D avec ombres douces sur le fantôme,

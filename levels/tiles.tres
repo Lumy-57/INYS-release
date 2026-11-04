@@ -36,6 +36,10 @@ texture = ExtResource("1_psjq4")
 5:3/0 = 0
 6:3/0 = 0
 7:3/0 = 0
+0:4/0 = 0
+1:4/0 = 0
+2:4/0 = 0
+3:4/0 = 0
 
 [resource]
 sources/0 = SubResource("TileSetAtlasSource_nvfl4")

@@ -1,8 +1,10 @@
 # Petite orbe blanche qui tourne autour du fantôme. Quand il approche d'un indice
 # du niveau, elle se pose près de lui et le lui dit, puis repart tourner.
 # Les indices sont donnés par main (déjà passés dans _hint_text) au chargement du niveau.
-# Chapitre Compagnie : elle montre les pierres cachées (orb_blocks.gd) et, quand le
-# fantôme dash, elle file devant lui dans la même direction pour éclairer la suite.
+# Chapitre Compagnie : elle montre les pierres cachées (orb_blocks.gd). Elle ne tourne
+# plus autour du fantôme : elle se promène devant lui, du côté où il regarde, et prend
+# de l'avance quand il court ou tombe. Quand il dash, elle file devant lui dans la
+# même direction pour éclairer la suite.
 extends Node2D
 
 const TILE := 16
@@ -13,6 +15,9 @@ const TRAIL := 6
 const WRAP := 200.0  # largeur max de la bulle avant retour à la ligne
 const FLARE_DIST := 84.0  # jusqu'où elle file devant le fantôme quand il dash
 const FLARE_TIME := 0.5   # temps passé devant avant de revenir
+const LEAD := Vector2(34, -4)    # chapitre Compagnie : où elle se tient devant le fantôme
+const LEAD_SPEED := Vector2(0.16, 0.14)  # avance prise selon la vitesse du fantôme
+const LEAD_MAX := Vector2(30, 26)
 
 var player: Node2D
 var main: Node  # sur l'écran titre, l'orbe tourne mais se tait
@@ -27,6 +32,7 @@ var scout := false  # chapitre Compagnie : elle éclaire les pierres cachées
 var flare := 0.0
 var flare_from := Vector2.ZERO
 var flare_dir := Vector2.ZERO
+var side := 1.0  # -1 → 1 : côté où elle guide, change en douceur quand il se retourne
 
 
 func _ready() -> void:
@@ -88,7 +94,8 @@ func snap() -> void:
 	flare = 0.0
 	trail.clear()
 	if player:
-		position = player.global_position + Vector2(0, -12)
+		side = float(player.facing)
+		position = player.global_position + (_lead() if scout else Vector2(0, -12))
 
 
 func set_scout(on: bool) -> void:
@@ -103,6 +110,23 @@ func dash_ahead(dir: Vector2) -> void:
 	flare = FLARE_TIME
 	flare_from = player.global_position
 	flare_dir = dir.normalized()
+
+
+# Où se tenir devant le fantôme : du côté où il regarde, plus loin s'il court ou tombe
+func _lead() -> Vector2:
+	var v: Vector2 = player.velocity if "velocity" in player else Vector2.ZERO
+	var ahead := Vector2(
+		clampf(v.x * LEAD_SPEED.x, -LEAD_MAX.x, LEAD_MAX.x),
+		clampf(v.y * LEAD_SPEED.y, -LEAD_MAX.y, LEAD_MAX.y))
+	# Le côté prime : si elle est devant, la vitesse l'éloigne encore ; elle ne passe pas derrière
+	var x := side * LEAD.x + ahead.x
+	if side > 0.0:
+		x = maxf(x, side * LEAD.x * 0.5)
+	elif side < 0.0:
+		x = minf(x, side * LEAD.x * 0.5)
+	# Quand il se retourne, elle passe par-dessus sa tête plutôt qu'à travers lui
+	var lift := (1.0 - absf(side)) * 14.0
+	return Vector2(x, LEAD.y + ahead.y - lift)
 
 
 # Points qui révèlent les pierres cachées : l'orbe d'abord, puis le fantôme qu'elle entoure
@@ -147,8 +171,13 @@ func _process(delta: float) -> void:
 	var a := t * 2.4
 	var orbit := Vector2(cos(a) * ORBIT.x, sin(a) * ORBIT.y - 6)
 	var perch := PERCH + Vector2(0, sin(t * 2.0) * 1.5)
-	var goal := p + orbit.lerp(perch, ease(speak, -2.0))
 	var follow := 9.0
+	if scout:
+		# Elle se promène devant lui, en petites boucles, pour lui montrer la suite
+		side = move_toward(side, float(player.facing), delta * 4.0)
+		orbit = _lead() + Vector2(sin(a * 0.5) * 4.0, sin(a) * 3.0)
+		follow = 6.0
+	var goal := p + orbit.lerp(perch, ease(speak, -2.0))
 	if flare > 0.0:
 		flare -= delta
 		# La direction du dash peut encore être corrigée pendant le petit gel

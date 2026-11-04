@@ -6,7 +6,7 @@ from PIL import Image, ImageDraw
 
 T = 16
 COLS = 8
-CHARS = "#%=^v<>-" "LOX|12ab" "iMWSB~HR" "PCDEe*Yy"
+CHARS = "#%=^v<>-" "LOX|12ab" "iMWSB~HR" "PCDEe*Yy" "_()0"
 
 img = Image.new("RGBA", (COLS * T, (len(CHARS) + COLS - 1) // COLS * T), (0, 0, 0, 0))
 d = ImageDraw.Draw(img)
@@ -89,11 +89,30 @@ for n, ch in enumerate(CHARS):
         box(x, y, (120, 100, 80, 255), (170, 150, 120, 255))
         d.line([x + 3, y + 2, x + 7, y + 7, x + 5, y + 13], fill=DARK)
         d.line([x + 7, y + 7, x + 13, y + 9], fill=DARK)
-    elif ch == "|":  # courant d'air
+    elif ch in "|_()":  # courant d'air : vers le haut, le bas, la gauche, la droite
         box(x, y, (60, 120, 160, 90))
-        for cx in (4, 11):
-            d.line([x + cx, y + 13, x + cx, y + 3], fill=(170, 220, 255, 255))
-            d.line([x + cx - 2, y + 5, x + cx, y + 3, x + cx + 2, y + 5], fill=(170, 220, 255, 255))
+        wind = (170, 220, 255, 255)
+        for k in (4, 11):
+            if ch == "|":
+                d.line([x + k, y + 13, x + k, y + 3], fill=wind)
+                d.line([x + k - 2, y + 5, x + k, y + 3, x + k + 2, y + 5], fill=wind)
+            elif ch == "_":
+                d.line([x + k, y + 2, x + k, y + 12], fill=wind)
+                d.line([x + k - 2, y + 10, x + k, y + 12, x + k + 2, y + 10], fill=wind)
+            elif ch == "(":
+                d.line([x + 13, y + k, x + 3, y + k], fill=wind)
+                d.line([x + 5, y + k - 2, x + 3, y + k, x + 5, y + k + 2], fill=wind)
+            else:
+                d.line([x + 2, y + k, x + 12, y + k], fill=wind)
+                d.line([x + 10, y + k - 2, x + 12, y + k, x + 10, y + k + 2], fill=wind)
+    elif ch == "0":  # zéro gravité : voile pointillé, poussières en suspension, dash rendu (éclair)
+        box(x, y, (110, 90, 170, 110))
+        for i in range(0, T, 3):
+            for p in [(x + i, y), (x + i, y + 15), (x, y + i), (x + 15, y + i)]:
+                d.point(p, fill=(230, 220, 255, 255))
+        for p in [(x + 3, y + 3), (x + 12, y + 4), (x + 3, y + 12), (x + 12, y + 12)]:
+            d.point(p, fill=WHITE)
+        d.polygon([(x + 9, y + 2), (x + 5, y + 9), (x + 8, y + 9), (x + 6, y + 14), (x + 11, y + 6), (x + 8, y + 6)], fill=GOLD)
     elif ch in "12":
         col = (90, 170, 230, 255) if ch == "1" else (230, 140, 60, 255)
         box(x, y, col, WHITE)
