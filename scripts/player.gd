@@ -367,7 +367,9 @@ func _after_move(fall: float) -> void:
 		if floor_motion.y < 0.0:
 			velocity.y += floor_motion.y
 	floor_body = body
-	floor_motion = body.get("motion") if body else Vector2.ZERO
+	floor_motion = Vector2.ZERO
+	if body:
+		floor_motion = body.get("motion")
 	if on_floor or is_on_wall():
 		carry = Vector2.ZERO
 	if on_floor and not was_on_floor:
