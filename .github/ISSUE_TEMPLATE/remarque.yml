@@ -1,0 +1,26 @@
+name: Remarque
+description: Une idée, un avis, un passage trop dur ou trop facile…
+title: "[Remarque] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: remarque
+    attributes:
+      label: Ta remarque
+    validations:
+      required: true
+  - type: input
+    id: niveau
+    attributes:
+      label: Niveau concerné
+      description: Rempli par le jeu (dernier niveau joué), à corriger ou effacer si besoin.
+  - type: input
+    id: version
+    attributes:
+      label: Version du jeu
+      description: Remplie par le jeu.
+  - type: input
+    id: plateforme
+    attributes:
+      label: Plateforme
+      description: Remplie par le jeu.

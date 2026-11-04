@@ -1,0 +1,49 @@
+name: Bug
+description: Quelque chose ne marche pas comme prévu dans le jeu.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Que s'est-il passé ?
+      description: Décris le bug en quelques phrases.
+    validations:
+      required: true
+  - type: textarea
+    id: etapes
+    attributes:
+      label: Comment le reproduire ?
+      description: Les étapes pour retomber dessus, si tu les connais.
+      placeholder: |
+        1. Aller au niveau…
+        2. Sauter contre…
+        3. …
+  - type: dropdown
+    id: frequence
+    attributes:
+      label: À quelle fréquence ?
+      options:
+        - À chaque fois
+        - Parfois
+        - Une seule fois
+  - type: input
+    id: niveau
+    attributes:
+      label: Niveau
+      description: Rempli par le jeu (dernier niveau joué), à corriger si besoin.
+  - type: input
+    id: version
+    attributes:
+      label: Version du jeu
+      description: Remplie par le jeu.
+  - type: input
+    id: plateforme
+    attributes:
+      label: Plateforme
+      description: Remplie par le jeu.
+  - type: textarea
+    id: captures
+    attributes:
+      label: Captures ou vidéo
+      description: Glisse une image ou une vidéo ici si tu en as une.
