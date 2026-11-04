@@ -56,9 +56,7 @@ func open() -> void:
 	var col_marks := PackedStringArray()
 	for i in save.playable_levels():
 		var lvl: Dictionary = LevelData.LEVELS[i]
-		var n := 0
-		for row in lvl["map"]:
-			n += row.count("*")
+		var n := LevelData.count(i, "*")
 		total_sparks += n
 		var best: float = save.best_level_time(i)
 		col_names.append("%d · %s" % [i + 1, lvl["name"]])

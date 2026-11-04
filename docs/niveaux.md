@@ -13,6 +13,7 @@ façon de dessiner change.
 ```
 Niveau        (Node2D, script levels/level.gd) : nom, chapitre, options dans l'Inspecteur
 ├── Carte     (TileMapLayer) : toute la carte, une tuile de 16 px par case
+├── (Pièges…) (TileMapLayer, facultatif) : d'autres calques, pour superposer des éléments
 └── Indices   (Node2D)
     ├── Indice    (levels/hint.tscn) : un texte que dit l'orbe quand on approche
     └── …
@@ -114,6 +115,23 @@ accrocher en wall jump (seules les parois verticales comptent comme murs), et le
 le long du biais. Un mur collé au côté plein d'une pente ne montre pas de liseré de ce côté.
 
 ![Pentes](../captures/pentes.png)
+
+## Plusieurs éléments sur une même case
+
+Un calque (TileMapLayer) ne porte qu'une tuile par case. Pour en superposer, par exemple des pics
+sur le rail d'une plateforme mobile, ajoute un deuxième calque :
+
+1. Sélectionne **Niveau**, puis *Ajouter un nœud enfant* (Ctrl + A) > **TileMapLayer**.
+   Renomme-le (par exemple « Pièges »).
+2. Dans l'Inspecteur, à **Tile Set**, choisis `levels/tiles.tres` (clic sur la flèche > *Charger*,
+   ou glisse le fichier depuis le dock Système de fichiers).
+3. Sélectionne ce calque et peins dedans comme dans la Carte : ses tuiles s'ajoutent à celles des
+   autres calques, case par case.
+
+Tous les calques enfants du nœud Niveau comptent, autant qu'il en faut. Le jeu réunit les tuiles
+de chaque case : un rail `-` dans la Carte et des pics `^` dans « Pièges » font une case qui est
+à la fois sur la course de la plateforme et piégée. L'ordre des calques ne change rien en jeu.
+Ne déplace pas un calque (sa position doit rester (0, 0)) : l'éditeur le signale sinon.
 
 ## Les indices
 
