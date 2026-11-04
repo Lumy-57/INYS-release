@@ -616,6 +616,16 @@ func _add_elements(elements: Array, bell_cells: Array) -> Node2D:
 				cb.crumbled.connect(func(_b): sfx.play("land", 0.3))
 				level_root.add_child(cb)
 				crumbles.append(cb)
+			"exit":
+				var ex := ExitPortal.new()
+				if e["flat"]:
+					ex.flat = true
+					ex.length = e["width"] * TILE - 2.0
+					ex.position = base + Vector2(e["width"] * TILE - 1.0, 8)
+				else:
+					ex.position = base + Vector2(8, 16)
+				ex.entered.connect(_on_exit)
+				level_root.add_child(ex)
 			"spring":
 				var spring := Spring.new()
 				spring.position = base + Vector2(8, 16)
@@ -631,8 +641,13 @@ func _add_elements(elements: Array, bell_cells: Array) -> Node2D:
 				mv.start = base
 				mv.course = Vector2(e["course"]) * TILE
 				mv.speed = e["speed"]
+				mv.speed_back = e.get("speed_back", e["speed"])
+				mv.ease_out = e.get("ease", 0)
+				mv.ease_back = e.get("ease_back", 0)
 				mv.pause = e["pause"]
 				mv.start_at = e["start"]
+				mv.trigger = e.get("trigger", 0)
+				mv.player = player
 				level_root.add_child(mv)
 				rails.append_array(_rail_points(rect, e["course"]))
 			"chime":

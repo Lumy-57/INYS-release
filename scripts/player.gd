@@ -62,6 +62,9 @@ var mirror := false  # reflet du chapitre Miroir : gauche et droite inversées
 var wind_frames := [-10, -10, -10, -10]
 var wind_power := [1.0, 1.0, 1.0, 1.0]  # force de ces courants (1 = normal)
 var zero_g_frame := -10  # posé par les zones de zéro gravité (zero_gravity.gd)
+var floor_body: Object = null  # plateforme mobile sous le fantôme (scripts/mover.gd), sinon null
+var floor_motion := Vector2.ZERO  # vitesse de cette plateforme, px/s
+var carry := Vector2.ZERO  # élan gardé d'une plateforme mobile quittée, jusqu'à toucher le sol ou un mur
 var zero_g_drag := ZERO_G_DRAG  # freinage et recharge du dash de la dernière zone traversée
 var zero_g_refill := true
 var afterimage_timer := 0.0
@@ -77,6 +80,8 @@ func _ready() -> void:
 	floor_max_angle = deg_to_rad(46.0)
 	floor_constant_speed = true
 	floor_snap_length = 5.0
+	# L'élan d'une plateforme mobile est géré à la main (_after_move) pour qu'il dure tout le saut
+	platform_on_leave = PLATFORM_ON_LEAVE_DO_NOTHING
 
 	var shape := CollisionShape2D.new()
 	var rect := RectangleShape2D.new()
@@ -184,6 +189,9 @@ func _physics_process(delta: float) -> void:
 			accel = AIR_ACCEL if ix != 0.0 else AIR_DECEL
 		# Vent de côté : la vitesse visée glisse dans son sens (on avance à peine contre lui)
 		var target := ix * RUN_SPEED + wind.x * WIND_SIDE_SPEED
+		# En l'air, l'élan d'une plateforme quittée s'ajoute : on file avec elle sans pousser
+		if not on_floor:
+			target += carry.x
 		if wind.x != 0.0 and ix == 0.0:
 			accel = WIND_SIDE_ACCEL
 		# On garde l'élan d'un dash si on pousse dans le même sens
@@ -279,6 +287,7 @@ func _update_dash(delta: float, on_floor: bool) -> void:
 
 
 func _start_dash(ix: float, iy: float) -> void:
+	carry = Vector2.ZERO
 	var dir := Vector2(ix, iy)
 	if dir == Vector2.ZERO:
 		dir = Vector2(facing, 0)
@@ -304,6 +313,7 @@ func _jump() -> void:
 
 
 func _wall_jump(wall_dir: int) -> void:
+	carry = Vector2.ZERO
 	velocity = Vector2(-wall_dir * WALL_JUMP_X, WALL_JUMP_Y)
 	wall_lock = WALL_JUMP_LOCK
 	facing = -wall_dir
@@ -341,6 +351,27 @@ func _on_solid_ground() -> bool:
 
 func _after_move(fall: float) -> void:
 	var on_floor := is_on_floor()
+	# Plateforme mobile : sur elle, on retient sa vitesse ; en la quittant (saut, chute), on la
+	# garde. Vers le haut, elle s'ajoute aussi au saut.
+	var body: Object = null
+	if on_floor:
+		for i in get_slide_collision_count():
+			var c := get_slide_collision(i)
+			var other := c.get_collider()
+			if c.get_normal().y < -0.7 and other and other.get("motion") is Vector2:
+				body = other
+				break
+	if floor_body != null and body == null and not on_floor:
+		carry = Vector2(floor_motion.x, 0.0)
+		velocity.x += floor_motion.x
+		if floor_motion.y < 0.0:
+			velocity.y += floor_motion.y
+	floor_body = body
+	floor_motion = Vector2.ZERO
+	if body:
+		floor_motion = body.get("motion")
+	if on_floor or is_on_wall():
+		carry = Vector2.ZERO
 	if on_floor and not was_on_floor:
 		land_speed = fall
 		visual.scale = Vector2(1.35, 0.7)
@@ -385,6 +416,8 @@ func die() -> void:
 	if dead or Settings.invincible:
 		return
 	dead = true
+	carry = Vector2.ZERO
+	floor_body = null
 	velocity = Vector2.ZERO
 	visual.visible = false
 	light.visible = false
@@ -394,6 +427,8 @@ func die() -> void:
 
 # Propulsion par un ressort : rend le dash et annule le dash en cours
 func launch(v: Vector2) -> void:
+	carry = Vector2.ZERO
+	floor_body = null
 	velocity = v
 	dashes = MAX_DASHES
 	dash_timer = 0.0
@@ -405,6 +440,8 @@ func launch(v: Vector2) -> void:
 
 
 func respawn(pos: Vector2) -> void:
+	carry = Vector2.ZERO
+	floor_body = null
 	global_position = pos
 	velocity = Vector2.ZERO
 	dead = false
