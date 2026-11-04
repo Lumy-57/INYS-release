@@ -631,8 +631,13 @@ func _add_elements(elements: Array, bell_cells: Array) -> Node2D:
 				mv.start = base
 				mv.course = Vector2(e["course"]) * TILE
 				mv.speed = e["speed"]
+				mv.speed_back = e.get("speed_back", e["speed"])
+				mv.ease_out = e.get("ease", 0)
+				mv.ease_back = e.get("ease_back", 0)
 				mv.pause = e["pause"]
 				mv.start_at = e["start"]
+				mv.trigger = e.get("trigger", 0)
+				mv.player = player
 				level_root.add_child(mv)
 				rails.append_array(_rail_points(rect, e["course"]))
 			"chime":

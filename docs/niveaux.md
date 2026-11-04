@@ -132,7 +132,7 @@ jaune sur « Niveau ».
 | **Bloc lumière / ombre** (`bloc_lumiere_ombre.tscn`) | `L` `O` | **Size** ; **Mode** : Lumière (solide quand le fantôme brille, dash disponible) ou Ombre (solide quand il est éteint). |
 | **Pierre fissurée** (`pierre_fissuree.tscn`) | `X` | **Size** ; **Tremble** : secondes avant la chute (0,45) ; **Retour** : secondes avant qu'elle revienne (2). |
 | **Ressort** (`ressort.tscn`) | `S` | **Force** : vitesse de la propulsion (430). Posé dans la case juste au-dessus du sol ; l'aperçu montre à peu près la hauteur atteinte. |
-| **Plateforme mobile** (`plateforme.tscn`) | `M` `W` `-` | **Size** ; **Course** : le bout B en cases depuis le bout A (là où est le nœud) : (6, 0) = 6 cases à droite, (0, -4) = 4 cases plus haut, (4, -4) = en diagonale ; **Vitesse** en px/s (60) ; **Pause** à chaque bout (0,4 s) ; **Depart** : où elle est au lancement, de 0 (en A) à 1 (en B). Le rail est dessiné tout seul. |
+| **Plateforme mobile** (`plateforme.tscn`) | `M` `W` `-` | **Size** ; **Course** : le bout B en cases depuis le bout A (là où est le nœud) : (6, 0) = 6 cases à droite, (0, -4) = 4 cases plus haut, (4, -4) = en diagonale ; **Pause** à chaque bout (0,4 s) ; **Depart** : où elle est au lancement, de 0 (en A) à 1 (en B) ; **Declenchement** : Toujours (aller-retour sans fin), Fantôme dessus (attend en A que le fantôme monte, va en B puis revient seule) ou Fantôme dessus, à chaque bout ; groupe **Aller (A → B)** : **Vitesse** moyenne en px/s (60) et **Acceleration** (Constante, Douce au départ et à l'arrivée, Douce au départ, Douce à l'arrivée) ; groupe **Retour (B → A)** : **Meme Retour** (coché = mêmes réglages qu'à l'aller), sinon **Vitesse Retour** et **Acceleration Retour**. Le rail est dessiné tout seul. |
 | **Bloc de carillon** (`bloc_carillon.tscn`) | `a` `b` | **Size** ; **Etat** : solide au repos, ou solide une fois sonné. Les cloches restent des tuiles `B`. |
 | **Bloc rythmé** (`bloc_rythme.tscn`) | `1` `2` | **Size** ; **Temps** : solide pendant la première ou la seconde moitié du cycle. Le cycle (2,4 s) est commun au niveau, la musique le suit. |
 | **Œil** (`oeil.tscn`) | `Y` `y` | **Decalage** : moment où il s'ouvre dans le cycle commun (0 = l'ancien `Y`, 0,5 = l'ancien `y`) ; **Portee** du regard en px (150). |
@@ -141,6 +141,10 @@ jaune sur « Niveau ».
 
 Quelques précisions sur le comportement :
 
+- **Plateforme mobile** : la vitesse réglée est une moyenne, le trajet dure toujours course ÷
+  vitesse. « Douce au départ » démarre lentement et arrive vite, « Douce à l'arrivée » l'inverse.
+  Le fantôme qui saute ou tombe d'une plateforme garde son élan : il continue à sa vitesse
+  jusqu'à toucher le sol, un mur, ou dasher ; si elle monte, son élan s'ajoute au saut.
 - **Vent** : vers le haut, il soulève le fantôme ; vers le bas, il le plaque plus vite qu'une
   chute ; de côté, il l'emporte au sol comme en l'air, et on avance à peine contre lui. Le dash
   passe à travers sans être dévié. Deux vents opposés qui se chevauchent s'annulent (selon leur

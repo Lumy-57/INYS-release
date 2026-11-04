@@ -1,6 +1,8 @@
 # Plateforme mobile : elle fait l'aller-retour entre deux bouts, A (là où le nœud est posé) et B
 # (A + « Course »), en ligne droite : à l'horizontale, à la verticale ou en diagonale. Le rail
-# qui montre sa course est dessiné tout seul.
+# qui montre sa course est dessiné tout seul. L'aller (A → B) et le retour (B → A) ont chacun leur
+# vitesse et leur accélération, et elle peut attendre que le fantôme monte dessus pour partir.
+# Le fantôme qui la quitte garde son élan.
 @tool
 extends LevelElement
 
@@ -8,17 +10,42 @@ extends LevelElement
 @export var size := Vector2i(3, 1)
 ## Le bout B, en cases depuis le bout A : (6, 0) = 6 cases à droite, (0, -4) = 4 cases plus haut
 @export var course := Vector2i(6, 0)
-## Vitesse, en px/s (60 = normal ; une case = 16 px)
-@export_range(5.0, 400.0, 5.0) var vitesse := 60.0
 ## Secondes d'arrêt à chaque bout (0,4 = normal)
 @export_range(0.0, 5.0, 0.05) var pause := 0.4
 ## Où elle se trouve au lancement : 0 = au bout A, 1 = au bout B. Elle part vers B (vers A si elle
 ## commence en B).
 @export_range(0.0, 1.0, 0.01) var depart := 0.0
+## Quand elle part :
+## « Toujours » : elle fait l'aller-retour sans s'arrêter, comme avant ;
+## « Fantôme dessus » : elle attend en A que le fantôme monte dessus, va en B, puis revient seule ;
+## « Fantôme dessus, à chaque bout » : elle attend le fantôme à chaque bout (aller comme retour).
+@export_enum("Toujours", "Fantôme dessus", "Fantôme dessus, à chaque bout") var declenchement := 0
+
+@export_group("Aller (A → B)")
+## Vitesse moyenne de l'aller, en px/s (60 = normal ; une case = 16 px)
+@export_range(5.0, 400.0, 5.0) var vitesse := 60.0
+## Comment elle prend de la vitesse à l'aller : constante, en douceur au départ et à l'arrivée,
+## seulement au départ (elle accélère jusqu'au bout), seulement à l'arrivée (elle part vite et
+## freine)
+@export_enum("Constante", "Douce au départ et à l'arrivée", "Douce au départ", "Douce à l'arrivée") var acceleration := 0
+
+@export_group("Retour (B → A)")
+## Le retour reprend la vitesse et l'accélération de l'aller
+@export var meme_retour := true
+## Vitesse moyenne du retour, en px/s (utilisée si « Meme Retour » est décoché)
+@export_range(5.0, 400.0, 5.0) var vitesse_retour := 60.0
+## Accélération du retour (utilisée si « Meme Retour » est décoché)
+@export_enum("Constante", "Douce au départ et à l'arrivée", "Douce au départ", "Douce à l'arrivée") var acceleration_retour := 0
 
 
 func element_data() -> Dictionary:
-	return {"type": "mover", "size": size, "course": course, "speed": vitesse, "pause": pause, "start": depart}
+	return {
+		"type": "mover", "size": size, "course": course, "pause": pause, "start": depart,
+		"trigger": declenchement,
+		"speed": vitesse, "ease": acceleration,
+		"speed_back": vitesse if meme_retour else vitesse_retour,
+		"ease_back": acceleration if meme_retour else acceleration_retour,
+	}
 
 
 func _draw() -> void:
@@ -33,5 +60,7 @@ func _draw() -> void:
 	var start := Rect2(b * depart, r.size)
 	draw_rect(start, Color(0.75, 0.75, 0.75))
 	draw_rect(Rect2(start.position + Vector2(2, 3), start.size - Vector2(4, 5)), Color(0.3, 0.3, 0.3))
-	_note(Vector2(2, -3), "A")
-	_note(b + Vector2(2, -3), "B · %d px/s" % int(vitesse))
+	var wait := ["", " · attend", " · attend"][declenchement]
+	_note(Vector2(2, -3), "A" + wait)
+	var back := "" if meme_retour else " / %d" % int(vitesse_retour)
+	_note(b + Vector2(2, -3), "B · %d%s px/s%s" % [int(vitesse), back, wait if declenchement == 2 else ""])
