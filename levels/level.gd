@@ -9,7 +9,7 @@ extends Node2D
 const TILE := 16
 const COLS := 8  # colonnes de levels/tiles.png
 # Caractère de chaque tuile de la palette, dans l'ordre de levels/tiles.png (tools/make_tiles.py)
-const CHARS := "#%=^v<>-" + "LOX|12ab" + "iMWSB~HR" + "PCDEe*Yy"
+const CHARS := "#%=^v<>-" + "LOX|12ab" + "iMWSB~HR" + "PCDEe*Yy" + "_()0"
 # Source 1 de la palette (levels/murs.png, tools/make_murs.py) : les murs taillés, une rangée par
 # style, peints avec les terrains pour que l'éditeur choisisse les bords tout seul
 const SHAPED := "rtg"

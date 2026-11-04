@@ -36,6 +36,12 @@ const DASH_END_MULT := 0.55
 const MAX_DASHES := 1
 const UPDRAFT_SPEED := 170.0
 const UPDRAFT_ACCEL := 1500.0
+# Vent vers le bas, à gauche ou à droite (updraft.gd)
+const WIND_DOWN_SPEED := 300.0
+const WIND_SIDE_SPEED := 110.0
+const WIND_SIDE_ACCEL := 900.0
+# Zéro gravité (zero_gravity.gd) : la vitesse verticale s'éteint doucement
+const ZERO_G_DRAG := 200.0
 
 var facing := 1
 var dashes := MAX_DASHES
@@ -52,7 +58,9 @@ var was_on_floor := false
 var land_speed := 0.0
 var dead := false
 var mirror := false  # reflet du chapitre Miroir : gauche et droite inversées
-var in_updraft_frame := -10  # posé par les courants d'air (updraft.gd)
+# Dernière image passée dans un courant d'air, par sens : haut, bas, gauche, droite (updraft.gd)
+var wind_frames := [-10, -10, -10, -10]
+var zero_g_frame := -10  # posé par les zones de zéro gravité (zero_gravity.gd)
 var afterimage_timer := 0.0
 
 var visual: Node2D
@@ -137,6 +145,8 @@ func _physics_process(delta: float) -> void:
 	var ix := _axis_x()
 	var iy := Input.get_axis("up", "down")
 	var on_floor := is_on_floor()
+	var zero_g := _in_zero_g()
+	var wind := _wind()
 
 	if on_floor:
 		coyote = COYOTE_TIME
@@ -144,6 +154,9 @@ func _physics_process(delta: float) -> void:
 			dashes = MAX_DASHES
 	else:
 		coyote -= delta
+	# Zéro gravité : le dash revient dès qu'il est fini, même en l'air
+	if zero_g and dash_timer <= 0.0:
+		dashes = MAX_DASHES
 
 	if Input.is_action_just_pressed("jump"):
 		jump_buffer = JUMP_BUFFER
@@ -166,10 +179,14 @@ func _physics_process(delta: float) -> void:
 			accel = GROUND_ACCEL if ix != 0.0 else GROUND_DECEL
 		else:
 			accel = AIR_ACCEL if ix != 0.0 else AIR_DECEL
+		# Vent de côté : la vitesse visée glisse dans son sens (on avance à peine contre lui)
+		var target := ix * RUN_SPEED + wind.x * WIND_SIDE_SPEED
+		if wind.x != 0.0 and ix == 0.0:
+			accel = WIND_SIDE_ACCEL
 		# On garde l'élan d'un dash si on pousse dans le même sens
-		if absf(velocity.x) > RUN_SPEED and signf(velocity.x) == signf(ix):
+		if target != 0.0 and absf(velocity.x) > absf(target) and signf(velocity.x) == signf(target):
 			accel = OVERSPEED_DECEL
-		velocity.x = move_toward(velocity.x, ix * RUN_SPEED, accel * delta)
+		velocity.x = move_toward(velocity.x, target, accel * delta)
 	if ix != 0.0:
 		facing = int(signf(ix))
 
@@ -182,10 +199,17 @@ func _physics_process(delta: float) -> void:
 	var max_fall := FAST_FALL if iy > 0.0 else MAX_FALL
 	if wall_dir != 0 and int(signf(ix)) == wall_dir and velocity.y > 0.0:
 		max_fall = WALL_SLIDE_MAX
-	if Engine.get_physics_frames() - in_updraft_frame <= 1:
+	if wind.y < 0.0:
 		# Courant d'air : on monte, sans couper le saut
 		velocity.y = move_toward(velocity.y, -UPDRAFT_SPEED, UPDRAFT_ACCEL * delta)
 		jumping = false
+	elif wind.y > 0.0:
+		# Vent vers le bas : il plaque le fantôme, plus vite qu'une chute
+		velocity.y = move_toward(velocity.y, WIND_DOWN_SPEED, UPDRAFT_ACCEL * delta)
+		jumping = false
+	elif zero_g:
+		# Zéro gravité : on flotte sur son élan, qui s'éteint doucement
+		velocity.y = move_toward(velocity.y, 0.0, ZERO_G_DRAG * delta)
 	else:
 		velocity.y = move_toward(velocity.y, max_fall, g * delta)
 
@@ -205,6 +229,20 @@ func _physics_process(delta: float) -> void:
 	var fall := velocity.y
 	move_and_slide()
 	_after_move(fall)
+
+
+# Somme des courants d'air où se trouve le fantôme (haut et bas s'annulent, comme gauche et droite)
+func _wind() -> Vector2:
+	var w := Vector2.ZERO
+	var now := Engine.get_physics_frames()
+	for i in 4:
+		if now - wind_frames[i] <= 1:
+			w += [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT][i]
+	return w
+
+
+func _in_zero_g() -> bool:
+	return Engine.get_physics_frames() - zero_g_frame <= 1
 
 
 func _axis_x() -> float:
