@@ -9,7 +9,7 @@ extends Node2D
 const TILE := 16
 const COLS := 8  # colonnes de levels/tiles.png
 # Caractère de chaque tuile de la palette, dans l'ordre de levels/tiles.png (tools/make_tiles.py)
-const CHARS := "#%=^v<>-" + "LOX|12ab" + "iMWSB~HR" + "PCDEe*Yy"
+const CHARS := "#%=^v<>-" + "LOX|12ab" + "iMWSB~HR" + "PCDEe*Yy" + "_()0"
 
 ## Nom affiché du niveau. Il sert aussi de clé à la sauvegarde : le changer remet ses records à zéro.
 @export var level_name := "":

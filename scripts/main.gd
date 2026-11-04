@@ -13,6 +13,7 @@ const ExitPortal = preload("res://scripts/exit_portal.gd")
 const PhaseBlocks = preload("res://scripts/phase_blocks.gd")
 const CrumbleBlock = preload("res://scripts/crumble_block.gd")
 const Updraft = preload("res://scripts/updraft.gd")
+const ZeroGravity = preload("res://scripts/zero_gravity.gd")
 const Spring = preload("res://scripts/spring.gd")
 const Mover = preload("res://scripts/mover.gd")
 const Rail = preload("res://scripts/rail.gd")
@@ -362,7 +363,7 @@ func _load_level(index: int) -> void:
 	var drawer := TilesDrawer.new()
 	drawer.wall = Palette.wall(colors)
 	drawer.rim = Palette.rim(colors)
-	var phase_runs := {"L": [], "O": [], "X": [], "|": []}
+	var phase_runs := {"L": [], "O": [], "X": [], "|": [], "_": [], "(": [], ")": [], "0": []}
 	var mover_cells := {"M": [], "W": []}
 	var rail_cells := []
 	var chime_cells := {"a": [], "b": [], "B": []}
@@ -444,7 +445,7 @@ func _load_level(index: int) -> void:
 					_add_spike(base, c)
 				"L", "O":
 					phase_runs[c].append(cell)
-				"X", "|":
+				"X", "|", "_", "(", ")", "0":
 					phase_runs[c].append(cell)
 				"M", "W":
 					mover_cells[c].append(cell)
@@ -555,12 +556,21 @@ func _load_level(index: int) -> void:
 				level_root.add_child(cb)
 				crumbles.append(cb)
 			continue
-		if k == "|":
+		if k in ["|", "_", "(", ")"]:
+			# Courants d'air : vers le haut, le bas, la gauche, la droite
 			for r in _merge_cells(phase_runs[k]):
 				var ud := Updraft.new()
 				ud.rect = r
+				ud.dir = "|_()".find(k)
 				ud.player = player
 				level_root.add_child(ud)
+			continue
+		if k == "0":
+			for r in _merge_cells(phase_runs[k]):
+				var zg := ZeroGravity.new()
+				zg.rect = r
+				zg.player = player
+				level_root.add_child(zg)
 			continue
 		var pb := PhaseBlocks.new()
 		pb.kind = k
