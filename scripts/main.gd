@@ -45,10 +45,13 @@ const HintOrb = preload("res://scripts/hint_orb.gd")
 const OrbBlocks = preload("res://scripts/orb_blocks.gd")
 const FakeWall = preload("res://scripts/fake_wall.gd")
 const Palette = preload("res://scripts/palette.gd")
+const Slopes = preload("res://scripts/slopes.gd")
 const UpdateCheck = preload("res://scripts/update_check.gd")
 
 const AMBIENT := Color(0.09, 0.09, 0.09)
 const RIM := 4.0  # liseré non occultant : les bords des murs captent la lumière
+# Cases pleines : mur, vitre, et murs taillés (r roche, t pierre taillée, g givre)
+const SOLID_CHARS := ["#", "=", "r", "t", "g"]
 
 var level_index := 0
 var world: Node2D
@@ -337,28 +340,35 @@ func _load_level(index: int) -> void:
 
 	var data: Dictionary = LevelData.LEVELS[index]
 	var colors := Palette.strength(index)
-	var rows: Array = data["map"]
-	var h := rows.size()
-	var w := 0
-	for r in rows:
-		w = maxi(w, r.length())
+	# Une case peut porter plusieurs éléments (un par calque de la scène) : grid[y][x] est la chaîne
+	# de leurs caractères, "" pour une case vide
+	var grid := LevelData.grid(index)
+	var h := grid.size()
+	var w: int = grid[0].size() if h > 0 else 0
 	room_size = Vector2(w, h) * TILE
-
-	var grid := []
-	for r in rows:
-		grid.append(r.rpad(w, "."))
 
 	var is_solid := func(x: int, y: int) -> bool:
 		if x < 0 or x >= w or y < 0:
 			return true
 		if y >= h:
 			return false
-		return grid[y][x] == "#" or grid[y][x] == "="
+		return _has_any(grid[y][x], SOLID_CHARS)
 
 	# Pour le dessin, les fausses parois (et la sortie secrète qu'elles cachent) comptent comme
 	# des murs : aucun liseré ne les trahit
 	var looks_solid := func(x: int, y: int) -> bool:
-		return is_solid.call(x, y) or (x >= 0 and x < w and y >= 0 and y < h and grid[y][x] in ["%", "e"])
+		return is_solid.call(x, y) or (x >= 0 and x < w and y >= 0 and y < h and _has_any(grid[y][x], ["%", "e"]))
+	# Un voisin cache le bord d'un mur s'il est plein, ou si c'est une pente pleine de ce côté
+	# (side : le côté du voisin tourné vers le mur, t b l r)
+	var covers := func(x: int, y: int, side: String) -> bool:
+		if looks_solid.call(x, y):
+			return true
+		if x < 0 or x >= w or y < 0 or y >= h:
+			return false
+		for n in grid[y][x]:
+			if Slopes.is_slope(n) and side in Slopes.COVERS[n]:
+				return true
+		return false
 
 	var drawer := TilesDrawer.new()
 	drawer.wall = Palette.wall(colors)
@@ -404,78 +414,95 @@ func _load_level(index: int) -> void:
 	level_root.add_child(occluders)
 	for y in h:
 		for x in w:
-			var c: String = grid[y][x]
+			var here: String = grid[y][x]
 			var cell := Vector2i(x, y)
 			var base := Vector2(x, y) * TILE
 			# Fausse paroi : dessinée comme un mur ; la sortie secrète est cachée dessous
-			if c == "%" or c == "e":
+			if "%" in here or "e" in here:
 				fake.cells.append(cell)
 				var fake_rims := [cell, not looks_solid.call(x, y - 1), not looks_solid.call(x, y + 1),
 					not looks_solid.call(x - 1, y), not looks_solid.call(x + 1, y)]
 				if fake_rims.has(true):
 					fake.edges.append(fake_rims)
-			match c:
-				"#":
-					drawer.solids.append(cell)
-					var up: bool = not is_solid.call(x, y - 1)
-					var down: bool = not is_solid.call(x, y + 1)
-					var left: bool = not is_solid.call(x - 1, y)
-					var right: bool = not is_solid.call(x + 1, y)
-					var rims := [cell, not looks_solid.call(x, y - 1), not looks_solid.call(x, y + 1),
-						not looks_solid.call(x - 1, y), not looks_solid.call(x + 1, y)]
-					if rims.has(true):
-						drawer.edges.append(rims)
-					if up or down or left or right:
-						var r := Rect2(base, Vector2(TILE, TILE))
-						r = r.grow_individual(-RIM if left else 0.0, -RIM if up else 0.0, -RIM if right else 0.0, -RIM if down else 0.0)
-						var occ := LightOccluder2D.new()
-						var poly := OccluderPolygon2D.new()
-						poly.polygon = PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)])
-						occ.occluder = poly
-						occluders.add_child(occ)
-				"^", "v", "<", ">":
-					drawer.spikes.append([cell, c])
-					_add_spike(base, c)
-				"B":
-					bell_cells.append(cell)
-				"R":
-					reflect_start = base + Vector2(8, 16 - 7)
-				"=":
-					glass_cells.append(cell)
-				"i":
-					hidden_cells.append(cell)
-				"P":
-					respawn_point = base + Vector2(8, 16 - 7)
-				"C":
-					var cp := Checkpoint.new()
-					cp.position = base + Vector2(8, 16)
-					cp.reached.connect(_on_checkpoint)
-					level_root.add_child(cp)
-					checkpoints.append(cp)
-				"D":
-					var cr := Crystal.new()
-					cr.position = base + Vector2(8, 8)
-					cr.touched.connect(_on_crystal)
-					level_root.add_child(cr)
-					crystals.append(cr)
-				"E", "e":
-					var ex := ExitPortal.new()
-					ex.position = base + Vector2(8, 16)
-					ex.secret = c == "e"
-					if ex.secret:
-						ex.veil = fake
-						ex.cell = cell
-						fake.secrets.append(cell)
-					ex.entered.connect(_on_exit)
-					level_root.add_child(ex)
-				"*":
-					var sp := Spark.new()
-					sp.position = base + Vector2(8, 8)
-					sp.cell = cell
-					sp.known = found_sparks.has(cell)
-					sp.collected.connect(_on_spark)
-					level_root.add_child(sp)
-					sparks.append(sp)
+			for c in here:
+				match c:
+					"#", "r", "t", "g":
+						var up: bool = not is_solid.call(x, y - 1)
+						var down: bool = not is_solid.call(x, y + 1)
+						var left: bool = not is_solid.call(x - 1, y)
+						var right: bool = not is_solid.call(x + 1, y)
+						var rims := [cell, not covers.call(x, y - 1, "b"), not covers.call(x, y + 1, "t"),
+							not covers.call(x - 1, y, "r"), not covers.call(x + 1, y, "l")]
+						if c == "#":
+							drawer.solids.append(cell)
+							if rims.has(true):
+								drawer.edges.append(rims)
+						else:  # murs taillés : coins arrondis ou biseautés (tiles_drawer.gd)
+							drawer.shaped.append([cell, c] + rims.slice(1))
+						if up or down or left or right:
+							var r := Rect2(base, Vector2(TILE, TILE))
+							r = r.grow_individual(-RIM if left else 0.0, -RIM if up else 0.0, -RIM if right else 0.0, -RIM if down else 0.0)
+							var occ := LightOccluder2D.new()
+							var poly := OccluderPolygon2D.new()
+							poly.polygon = PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)])
+							occ.occluder = poly
+							occluders.add_child(occ)
+					"j", "k", "u", "n", "c", "d", "f", "h", "l", "m", "o", "s":
+						# Pente : collision en biais, ombre un peu en retrait comme les murs
+						drawer.slopes.append([cell, c])
+						var slope_body := CollisionPolygon2D.new()
+						slope_body.polygon = Slopes.shape(c, base)
+						body.add_child(slope_body)
+						var inset := Geometry2D.offset_polygon(Slopes.shape(c, base), -3.0)
+						if not inset.is_empty():
+							var socc := LightOccluder2D.new()
+							var spoly := OccluderPolygon2D.new()
+							spoly.polygon = inset[0]
+							socc.occluder = spoly
+							occluders.add_child(socc)
+					"^", "v", "<", ">":
+						drawer.spikes.append([cell, c])
+						_add_spike(base, c)
+					"B":
+						bell_cells.append(cell)
+					"R":
+						reflect_start = base + Vector2(8, 16 - 7)
+					"=":
+						glass_cells.append(cell)
+					"i":
+						hidden_cells.append(cell)
+					"P":
+						respawn_point = base + Vector2(8, 16 - 7)
+					"C":
+						var cp := Checkpoint.new()
+						cp.position = base + Vector2(8, 16)
+						cp.reached.connect(_on_checkpoint)
+						level_root.add_child(cp)
+						checkpoints.append(cp)
+					"D":
+						var cr := Crystal.new()
+						cr.position = base + Vector2(8, 8)
+						cr.touched.connect(_on_crystal)
+						level_root.add_child(cr)
+						crystals.append(cr)
+					"E", "e":
+						var ex := ExitPortal.new()
+						ex.position = base + Vector2(8, 16)
+						ex.secret = c == "e"
+						if ex.secret:
+							ex.veil = fake
+							ex.cell = cell
+							fake.secrets.append(cell)
+						ex.entered.connect(_on_exit)
+						level_root.add_child(ex)
+					"*":
+						var sp := Spark.new()
+						sp.position = base + Vector2(8, 8)
+						sp.cell = cell
+						sp.known = found_sparks.has(cell)
+						sp.collected.connect(_on_spark)
+						level_root.add_child(sp)
+						sparks.append(sp)
 	level_root.add_child(drawer)
 	level_root.move_child(drawer, 0)
 	var has_fake := not fake.cells.is_empty()
@@ -812,6 +839,14 @@ func _mirror_checkpoint(cp) -> void:
 			if not other.lit:
 				sfx.play("candle", 0.0)
 			other.light_up()
+
+
+# Une case (chaîne de caractères, un par calque) contient-elle l'un de ces éléments ?
+func _has_any(here: String, chars: Array) -> bool:
+	for c in here:
+		if c in chars:
+			return true
+	return false
 
 
 func _add_spike(base: Vector2, kind: String) -> void:
@@ -1169,9 +1204,7 @@ func _draw_menu() -> void:
 func _level_info(index: int) -> String:
 	var best := save.best_level_time(index)
 	var info := "record %s" % (_format_time(best) if best >= 0.0 else "—")
-	var total := 0
-	for row in LevelData.LEVELS[index]["map"]:
-		total += row.count("*")
+	var total := LevelData.count(index, "*")
 	if total > 0:
 		info += "   ·   étincelles %d/%d" % [save.found_sparks(index).size(), total]
 	return info

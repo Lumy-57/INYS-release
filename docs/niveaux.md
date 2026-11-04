@@ -14,6 +14,7 @@ façon de dessiner change.
 ```
 Niveau        (Node2D, script levels/level.gd) : nom, chapitre, options dans l'Inspecteur
 ├── Carte     (TileMapLayer) : le décor, une tuile de 16 px par case
+├── (Pièges…) (TileMapLayer, facultatif) : d'autres calques, pour superposer des tuiles
 ├── Éléments  (Node2D) : les éléments réglables (levels/elements/), chacun avec ses réglages
 │   ├── Vent              (levels/elements/vent.tscn)
 │   └── …
@@ -63,6 +64,48 @@ règles n'ont pas changé :
 - **Sortie secrète `e`** : une par chapitre, cachée sous des fausses parois `%`. Elle ouvre la
   face B du chapitre.
 - **Étincelle `*`** : une par niveau ; elle ouvre le fragment du journal de ce niveau.
+### Les murs taillés : roche, pierre taillée, givre
+
+Pour casser l'effet « cubes », trois murs de plus, toujours en gris et blanc. Ils sont solides
+et font de l'ombre exactement comme le mur `#` ; seul leur dessin change :
+
+- **Roche `r`** : coins saillants arrondis, quelques grains et fêlures ;
+- **Pierre taillée `t`** : coins biseautés, joints de briques décalés ;
+- **Givre `g`** : coins arrondis, une couche de neige qui coule en gouttes sur le dessus.
+
+Ils sont dans le deuxième atlas de la palette (`murs.png`, à côté de la palette habituelle).
+Le plus simple est de les peindre avec les terrains, pour que Godot choisisse tout seul les
+bons bords et les bons coins :
+
+1. Sélectionne **Carte**, puis l'onglet **Terrains** du panneau TileMap (à côté de « Tuiles »).
+2. Choisis « Roche », « Pierre taillée » ou « Givre », et peins (Ligne, Rectangle et Seau
+   marchent aussi). Les cases voisines se raccordent d'elles-mêmes ; clic droit pour effacer.
+
+Peu importe la tuile exacte posée : en jeu, chaque case de mur taillé recalcule ses bords à
+partir de ses voisins, et ses grains et gouttes varient d'une case à l'autre. On peut les
+mélanger entre eux et avec `#` : deux murs qui se touchent ne se séparent pas d'un liseré.
+Seuls les coins saillants sont arrondis ; les collisions restent carrées.
+
+![Murs taillés](../captures/murs_tailles.png)
+
+Pour retoucher leur dessin : `tools/make_murs.py` (l'icône dans l'éditeur, et la source
+« Murs » de `levels/tiles.tres`) et `_draw_shaped` dans `scripts/tiles_drawer.gd` (le jeu).
+
+### Les pentes
+
+La dernière rangée de `murs.png` : des pentes pleines, en gris avec un liseré le long du biais.
+Elles se posent une par une depuis l'onglet **Tuiles** (pas les terrains) :
+
+- **Raides (45°)** : une tuile. Sol qui monte vers la droite, vers la gauche, puis les mêmes
+  au plafond.
+- **Douces** : une case de haut pour deux de long, donc deux tuiles côte à côte, la moitié
+  basse puis la moitié haute (dans l'ordre de la palette). Au sol et au plafond.
+
+Le fantôme y court à vitesse constante et reste collé en descente ; on ne peut pas s'y
+accrocher en wall jump (seules les parois verticales comptent comme murs), et le dash glisse
+le long du biais. Un mur collé au côté plein d'une pente ne montre pas de liseré de ce côté.
+
+![Pentes](../captures/pentes.png)
 
 ## Les éléments réglables
 
@@ -106,6 +149,24 @@ Quelques précisions sur le comportement :
   c'est la seule exception à « le dash ne revient qu'au sol » : on peut y enchaîner les dashes.
 - Les réglages par défaut sont ceux d'avant : les niveaux existants ont été convertis et se
   jouent comme avant.
+
+## Plusieurs tuiles sur une même case
+
+Un calque (TileMapLayer) ne porte qu'une tuile par case. Pour en superposer, par exemple des pics
+sous une fausse paroi, ajoute un deuxième calque (les éléments réglables, eux, se superposent
+librement à tout) :
+
+1. Sélectionne **Niveau**, puis *Ajouter un nœud enfant* (Ctrl + A) > **TileMapLayer**.
+   Renomme-le (par exemple « Pièges »).
+2. Dans l'Inspecteur, à **Tile Set**, choisis `levels/tiles.tres` (clic sur la flèche > *Charger*,
+   ou glisse le fichier depuis le dock Système de fichiers).
+3. Sélectionne ce calque et peins dedans comme dans la Carte : ses tuiles s'ajoutent à celles des
+   autres calques, case par case.
+
+Tous les calques enfants du nœud Niveau comptent, autant qu'il en faut. Le jeu réunit les tuiles
+de chaque case : une tuile dans la Carte et des pics `^` dans « Pièges » font une case qui a les
+deux. L'ordre des calques ne change rien en jeu.
+Ne déplace pas un calque (sa position doit rester (0, 0)) : l'éditeur le signale sinon.
 
 ## Les indices
 

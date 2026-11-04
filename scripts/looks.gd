@@ -17,9 +17,8 @@ const LOOKS := [
 
 static func total_sparks() -> int:
 	var n := 0
-	for lvl in LevelData.LEVELS:
-		for row in lvl["map"]:
-			n += row.count("*")
+	for i in LevelData.LEVELS.size():
+		n += LevelData.count(i, "*")
 	return n
 
 
