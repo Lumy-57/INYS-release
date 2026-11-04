@@ -1,5 +1,7 @@
 # Génère levels/tiles.png : la palette de tuiles de l'éditeur de niveaux (une icône de 16 px
 # par caractère de l'ancien format texte). L'ordre doit rester celui de CHARS dans levels/level.gd.
+# Les icônes des mécaniques devenues éléments réglables (levels/elements/) restent dessinées pour
+# ne pas décaler les autres, mais levels/tiles.tres n'en fait plus des tuiles.
 #   python3 tools/make_tiles.py levels/tiles.png
 import sys
 from PIL import Image, ImageDraw

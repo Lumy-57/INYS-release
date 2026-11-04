@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://levels/elements/ombres.gd" id="1_ombres"]
+
+[node name="OmbresPoursuivantes" type="Node2D"]
+script = ExtResource("1_ombres")

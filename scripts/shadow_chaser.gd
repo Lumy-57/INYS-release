@@ -7,13 +7,15 @@ extends Node2D
 
 const GhostVisual = preload("res://scripts/ghost_visual.gd")
 
-const DELAY := 66          # retard, en images de physique (~1,1 s)
 const WAKE := 30           # elle est entièrement levée WAKE images avant de partir
 const HIT := 8.0           # distance de contact
 const BESIDE := 14.0       # la compagne s'arrête à cette distance
 
 var player: CharacterBody2D
 var companion := false     # à régler avant add_child
+var delay := 66            # retard, en images de physique (66 : ~1,1 s)
+var speed := 1.0           # 1 : au même pas que le fantôme ; plus, elle le rattrape peu à peu
+var head := -1.0           # où elle en est sur le chemin (indice dans trail), une fois partie
 var trail: Array = []      # [position, facing]
 var anchor := Vector2.INF  # point d'apparition du fantôme
 var awake := false
@@ -49,6 +51,7 @@ func reset() -> void:
 	trail.clear()
 	awake = false
 	idx = 0
+	head = -1.0
 	anchor = Vector2.INF
 	visible = false
 	modulate.a = 0.15
@@ -70,18 +73,24 @@ func _physics_process(_delta: float) -> void:
 	if companion:
 		_walk_along()
 		return
-	var i := trail.size() - 1 - DELAY
 	visible = true
-	if i < 0:
-		# Elle se lève là où le fantôme est apparu
-		_place(trail[0])
-		modulate.a = clampf(float(trail.size()) / float(DELAY - WAKE), 0.15, 1.0)
-		return
+	if head < 0.0:
+		if trail.size() - 1 - delay < 0:
+			# Elle se lève là où le fantôme est apparu
+			_place(trail[0])
+			modulate.a = clampf(float(trail.size()) / float(maxi(delay - WAKE, 1)), 0.15, 1.0)
+			return
+		head = 0.0
+	else:
+		# Elle avance sur le chemin à sa vitesse, sans jamais dépasser le fantôme
+		head = minf(head + speed, trail.size() - 1)
 	modulate.a = 1.0
+	var i := int(head)
 	_place(trail[i])
 	# On ne garde que ce qui reste à parcourir
 	if i > 256:
 		trail = trail.slice(i)
+		head -= i
 	if global_position.distance_to(player.global_position) < HIT:
 		player.die()
 
@@ -93,7 +102,7 @@ func _walk_along() -> void:
 	modulate.a = minf(modulate.a + 0.03, 1.0)
 	if global_position.distance_to(player.global_position) > BESIDE:
 		var behind := trail.size() - 1 - idx
-		idx = mini(idx + (2 if behind > DELAY else 1), trail.size() - 1)
+		idx = mini(idx + (2 if behind > delay else 1), trail.size() - 1)
 	_place(trail[idx])
 	if idx > 256:
 		trail = trail.slice(idx)

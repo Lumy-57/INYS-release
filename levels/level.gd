@@ -1,16 +1,18 @@
 # Racine d'une scène de niveau. La carte se peint dans la TileMapLayer « Carte » (une tuile par
 # case de 16 px, palette levels/tiles.tres), et dans d'autres TileMapLayer enfants du niveau pour
-# poser plusieurs éléments sur une même case (des pics sur le rail d'une plateforme…). Les indices
-# sont des nœuds « Indice » posés sous « Indices ». Au lancement, level_data.gd relit chaque scène
-# et en refait une grille de caractères par calque, que main.gd sait construire : chaque tuile vaut
-# un caractère de CHARS (voir docs/niveaux.md).
+# poser plusieurs tuiles sur une même case. Les éléments réglables (vent, plateformes mobiles,
+# marée…, levels/elements/) sont posés sous « Éléments », les indices sous « Indices ». Au
+# lancement, level_data.gd relit chaque scène et en refait une grille de caractères par calque,
+# que main.gd sait construire : chaque tuile vaut un caractère de CHARS (voir docs/niveaux.md).
 @tool
 class_name LevelScene
 extends Node2D
 
 const TILE := 16
 const COLS := 8  # colonnes de levels/tiles.png
-# Caractère de chaque tuile de la palette, dans l'ordre de levels/tiles.png (tools/make_tiles.py)
+# Caractère de chaque tuile de la palette, dans l'ordre de levels/tiles.png (tools/make_tiles.py).
+# Les icônes - L O X | 1 2 a b M W S ~ H Y y _ ( ) 0 ne sont plus des tuiles (elles sont devenues
+# des éléments réglables, levels/elements/) : elles restent dans l'image pour ne rien décaler.
 const CHARS := "#%=^v<>-" + "LOX|12ab" + "iMWSB~HR" + "PCDEe*Yy" + "_()0"
 # Source 1 de la palette (levels/murs.png, tools/make_murs.py) : les murs taillés, une rangée par
 # style, peints avec les terrains pour que l'éditeur choisisse les bords tout seul
@@ -34,8 +36,6 @@ const SLOPE_CHARS := "jkun" + "cdfh" + "lmos"
 @export var epilogue := false
 ## Teinte de l'épilogue, de 0 (noir et blanc) à 1 (couleurs)
 @export_range(0.0, 1.0, 0.05) var colors := 0.0
-## L'ombre H marche avec le fantôme sans le toucher
-@export var companion := false
 @export_group("Salle")
 ## Coché : la salle commence à la tuile peinte la plus en haut à gauche. Décoché : elle commence
 ## à « Room Corner »
@@ -106,6 +106,9 @@ func _get_configuration_warnings() -> PackedStringArray:
 			outside = outside or not room.has_point(cell)
 	if outside:
 		out.append("Des tuiles sont hors de la salle (cadre orange) : elles seront ignorées.")
+	for e in _elements(self):
+		if not room.has_point(Vector2i((_offset_of(e) / TILE).round())):
+			out.append("L'élément « %s » est hors de la salle (cadre orange)." % e.name)
 	if moved:
 		out.append("Un calque de tuiles a été déplacé : remets sa position à (0, 0), sinon le jeu ne le place pas où on le voit.")
 	if counts.get("P", 0) != 1:
@@ -186,7 +189,15 @@ func to_data() -> Dictionary:
 			if h is Node2D and "text" in h:
 				var cell := Vector2i((h.position / TILE).floor()) - origin
 				hints.append([cell.x, cell.y, h.text])
-	var data := {"name": level_name, "chapter": chapter, "hints": hints, "layers": layers}
+	# Les éléments réglables : leurs réglages, et leur case depuis le coin de la salle
+	var elements := []
+	for e in _elements(self):
+		var d: Dictionary = e.element_data()
+		if d.is_empty():
+			continue
+		d["cell"] = Vector2i((_offset_of(e) / TILE).round()) - origin
+		elements.append(d)
+	var data := {"name": level_name, "chapter": chapter, "hints": hints, "layers": layers, "elements": elements}
 	if bside:
 		data["bside"] = true
 		data["line"] = line
@@ -194,6 +205,26 @@ func to_data() -> Dictionary:
 		data["epilogue"] = true
 	if colors > 0.0:
 		data["colors"] = colors
-	if companion:
-		data["companion"] = true
 	return data
+
+
+# Tous les éléments réglables de la scène, où qu'ils soient rangés
+func _elements(node: Node) -> Array:
+	var out := []
+	for c in node.get_children():
+		if c.has_method("element_data"):
+			out.append(c)
+		elif not c is TileMapLayer:
+			out.append_array(_elements(c))
+	return out
+
+
+# Position d'un nœud dans le repère du niveau (sans passer par l'arbre de scène : au lancement,
+# le niveau est relu avant d'y être ajouté)
+func _offset_of(node: Node2D) -> Vector2:
+	var at := node.position
+	var p: Node = node.get_parent()
+	while p != self and p is Node2D:
+		at = (p as Node2D).position + at
+		p = p.get_parent()
+	return at

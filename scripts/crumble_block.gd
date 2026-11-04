@@ -1,9 +1,8 @@
 # Pierre fissurée : tremble dès que le fantôme la touche, s'effondre, puis revient.
 extends StaticBody2D
 
-const SHAKE_TIME := 0.45
-const GONE_TIME := 2.0
-
+var shake_time := 0.45     # secondes de tremblement avant la chute
+var gone_time := 2.0       # secondes avant le retour
 var rect: Rect2            # en pixels, coordonnées du niveau
 var player: CharacterBody2D
 var state := "idle"        # idle, shaking, gone
@@ -37,12 +36,12 @@ func _physics_process(delta: float) -> void:
 			# Un contact par le dessus ou par le côté suffit
 			if not player.dead and rect.grow(1.5).intersects(body_rect):
 				state = "shaking"
-				timer = SHAKE_TIME
+				timer = shake_time
 		"shaking":
 			timer -= delta
 			if timer <= 0.0:
 				state = "gone"
-				timer = GONE_TIME
+				timer = gone_time
 				shape.set_deferred("disabled", true)
 				crumbled.emit(self)
 		"gone":

@@ -69,7 +69,7 @@ var crystals: Array = []
 var crumbles: Array = []
 var checkpoints: Array = []
 var chimes: Node2D  # blocs de carillon du niveau, s'il y en a
-var chaser: Node2D  # ombre poursuivante, s'il y en a une
+var chasers: Array = []  # ombres poursuivantes, s'il y en a
 var dark: Node2D    # marée de ténèbres, s'il y en a une
 var watchers: Node2D  # yeux qui regardent, s'il y en a
 var orb_blocks: Node2D  # pierres cachées que montre l'orbe, s'il y en a
@@ -322,7 +322,7 @@ func _load_level(index: int) -> void:
 	world.add_child(level_root)
 	crumbles.clear()
 	chimes = null
-	chaser = null
+	chasers.clear()
 	dark = null
 	watchers = null
 	orb_blocks = null
@@ -373,14 +373,7 @@ func _load_level(index: int) -> void:
 	var drawer := TilesDrawer.new()
 	drawer.wall = Palette.wall(colors)
 	drawer.rim = Palette.rim(colors)
-	var phase_runs := {"L": [], "O": [], "X": [], "|": [], "_": [], "(": [], ")": [], "0": []}
-	var mover_cells := {"M": [], "W": []}
-	var rail_cells := []
-	var chime_cells := {"a": [], "b": [], "B": []}
-	var timed_cells := {"1": [], "2": []}
-	var has_chaser := false
-	var dark_top := -1.0
-	var eye_cells := []
+	var bell_cells := []
 	var reflect_start := Vector2.INF
 	var glass_cells := []
 	var hidden_cells := []
@@ -470,38 +463,14 @@ func _load_level(index: int) -> void:
 					"^", "v", "<", ">":
 						drawer.spikes.append([cell, c])
 						_add_spike(base, c)
-					"L", "O":
-						phase_runs[c].append(cell)
-					"X", "|", "_", "(", ")", "0":
-						phase_runs[c].append(cell)
-					"M", "W":
-						mover_cells[c].append(cell)
-					"-":
-						rail_cells.append(cell)
-					"a", "b", "B":
-						chime_cells[c].append(cell)
-					"1", "2":
-						timed_cells[c].append(cell)
-					"H":
-						has_chaser = true
-					"~":
-						dark_top = base.y
+					"B":
+						bell_cells.append(cell)
 					"R":
 						reflect_start = base + Vector2(8, 16 - 7)
 					"=":
 						glass_cells.append(cell)
 					"i":
 						hidden_cells.append(cell)
-					"Y", "y":
-						eye_cells.append([base + Vector2(8, 8), 0.0 if c == "Y" else 0.5])
-					"S":
-						var spring := Spring.new()
-						spring.position = base + Vector2(8, 16)
-						spring.player = player
-						spring.launched.connect(func(_s):
-							sfx.play("jump", 0.0)
-							add_shake(1.5))
-						level_root.add_child(spring)
 					"P":
 						respawn_point = base + Vector2(8, 16 - 7)
 					"C":
@@ -545,24 +514,10 @@ func _load_level(index: int) -> void:
 		level_root.add_child(fake)
 	else:
 		fake.free()
-	_add_movers(mover_cells, rail_cells, grid)
-	_add_chimes(chime_cells)
-	var tb: Node2D = null
-	if not (timed_cells["1"].is_empty() and timed_cells["2"].is_empty()):
-		tb = TimedBlocks.new()
-		tb.runs_1 = _merge_cells(timed_cells["1"])
-		tb.runs_2 = _merge_cells(timed_cells["2"])
-		tb.player = player
-		level_root.add_child(tb)
-	_add_pursuers(has_chaser, dark_top, data.get("companion", false))
+	var tb := _add_elements(data.get("elements", []), bell_cells)
 	_add_reflection(reflect_start, glass_cells)
 	if has_fake and reflection:
 		fake.ghosts.append(reflection)
-	if not eye_cells.is_empty():
-		watchers = Watchers.new()
-		watchers.eyes = eye_cells
-		watchers.player = player
-		level_root.add_child(watchers)
 	# Chapitre Compagnie : les pierres cachées n'apparaissent que près de l'orbe
 	hint_orb.set_scout(not hidden_cells.is_empty())
 	if not hidden_cells.is_empty():
@@ -571,39 +526,6 @@ func _load_level(index: int) -> void:
 		orb_blocks.player = player
 		orb_blocks.orb = hint_orb
 		level_root.add_child(orb_blocks)
-	for k in phase_runs:
-		if phase_runs[k].is_empty():
-			continue
-		if k == "X":
-			for r in _merge_cells(phase_runs[k]):
-				var cb := CrumbleBlock.new()
-				cb.rect = r
-				cb.player = player
-				cb.crumbled.connect(func(_b): sfx.play("land", 0.3))
-				level_root.add_child(cb)
-				crumbles.append(cb)
-			continue
-		if k in ["|", "_", "(", ")"]:
-			# Courants d'air : vers le haut, le bas, la gauche, la droite
-			for r in _merge_cells(phase_runs[k]):
-				var ud := Updraft.new()
-				ud.rect = r
-				ud.dir = "|_()".find(k)
-				ud.player = player
-				level_root.add_child(ud)
-			continue
-		if k == "0":
-			for r in _merge_cells(phase_runs[k]):
-				var zg := ZeroGravity.new()
-				zg.rect = r
-				zg.player = player
-				level_root.add_child(zg)
-			continue
-		var pb := PhaseBlocks.new()
-		pb.kind = k
-		pb.runs = _merge_cells(phase_runs[k])
-		pb.player = player
-		level_root.add_child(pb)
 
 	# Les indices ne sont plus écrits sur les murs : l'orbe les dit quand on approche
 	var hints := []
@@ -655,31 +577,134 @@ func _level_label(index: int) -> String:
 	return "%d · %s" % [index + 1, LevelData.LEVELS[index]["name"]]
 
 
-# Plateformes mobiles : M glisse à l'horizontale, W à la verticale, le long des cases "-"
-func _add_movers(mover_cells: Dictionary, rail_cells: Array, grid: Array) -> void:
-	if not rail_cells.is_empty():
+# Les éléments réglables posés dans la scène du niveau (levels/elements/) : chacun arrive en
+# dictionnaire, avec "type", sa case "cell" depuis le coin de la salle et ses réglages. Les blocs
+# d'une même sorte partagent un seul nœud (une horloge, un état de cloches). Rend les blocs
+# rythmés (l'horloge que la musique suit), ou null.
+func _add_elements(elements: Array, bell_cells: Array) -> Node2D:
+	var phase_runs := {"L": [], "O": []}
+	var chime_runs := {"a": [], "b": []}
+	var timed_runs := [[], []]
+	var eyes := []
+	var rails := []
+	for e in elements:
+		var base := Vector2(e["cell"]) * TILE
+		var rect := Rect2(base, Vector2(Vector2i(e.get("size", Vector2i.ONE)).max(Vector2i.ONE)) * TILE)
+		match e["type"]:
+			"vent":
+				var ud := Updraft.new()
+				ud.rect = rect
+				ud.dir = e["dir"]
+				ud.force = e["force"]
+				ud.player = player
+				level_root.add_child(ud)
+			"zero_g":
+				var zg := ZeroGravity.new()
+				zg.rect = rect
+				zg.drag = e["drag"]
+				zg.refill = e["refill"]
+				zg.player = player
+				level_root.add_child(zg)
+			"phase":
+				phase_runs[e["kind"]].append(rect)
+			"crumble":
+				var cb := CrumbleBlock.new()
+				cb.rect = rect
+				cb.shake_time = e["shake"]
+				cb.gone_time = e["gone"]
+				cb.player = player
+				cb.crumbled.connect(func(_b): sfx.play("land", 0.3))
+				level_root.add_child(cb)
+				crumbles.append(cb)
+			"spring":
+				var spring := Spring.new()
+				spring.position = base + Vector2(8, 16)
+				spring.launch_speed = e["force"]
+				spring.player = player
+				spring.launched.connect(func(_s):
+					sfx.play("jump", 0.0)
+					add_shake(1.5))
+				level_root.add_child(spring)
+			"mover":
+				var mv := Mover.new()
+				mv.size = rect.size
+				mv.start = base
+				mv.course = Vector2(e["course"]) * TILE
+				mv.speed = e["speed"]
+				mv.pause = e["pause"]
+				mv.start_at = e["start"]
+				level_root.add_child(mv)
+				rails.append_array(_rail_points(rect, e["course"]))
+			"chime":
+				chime_runs[e["kind"]].append(rect)
+			"timed":
+				timed_runs[e["phase"]].append(rect)
+			"eye":
+				eyes.append([base + Vector2(8, 8), e["offset"], e["range"]])
+			"tide":
+				if dark == null:
+					dark = RisingDark.new()
+					dark.player = player
+					dark.width = room_size.x
+					dark.start_top = base.y
+					dark.speed = e["speed"]
+					dark.reach = e["reach"]
+					dark.catch_up = e["catch_up"]
+					dark.below_respawn = e["below"]
+					level_root.add_child(dark)
+			"chaser":
+				for i in int(e["count"]):
+					var ch := ShadowChaser.new()
+					ch.player = player
+					ch.companion = e["companion"]
+					ch.delay = roundi((e["delay"] + i * e["gap"]) * Engine.physics_ticks_per_second)
+					ch.speed = e["speed"]
+					level_root.add_child(ch)
+					chasers.append(ch)
+	if not rails.is_empty():
 		var rail := Rail.new()
-		rail.cells = rail_cells
+		rail.points = rails
 		level_root.add_child(rail)
-	for k in mover_cells:
-		for r in _merge_cells(mover_cells[k]):
-			var c0 := Vector2i(r.position / TILE)
-			var n := Vector2i(r.size / TILE)
-			var mv := Mover.new()
-			mv.size = r.size
-			mv.start = r.position
-			mv.vertical = k == "W"
-			var step := Vector2i(0, 1) if mv.vertical else Vector2i(1, 0)
-			var before := 0
-			while "-" in _cell(grid, c0 - step * (before + 1)):
-				before += 1
-			var after := 0
-			var far := c0 + Vector2i(n.x - 1, n.y - 1)
-			while "-" in _cell(grid, far + step * (after + 1)):
-				after += 1
-			mv.low = -before * TILE
-			mv.high = after * TILE
-			level_root.add_child(mv)
+		level_root.move_child(rail, 1)
+	for k in phase_runs:
+		if phase_runs[k].is_empty():
+			continue
+		var pb := PhaseBlocks.new()
+		pb.kind = k
+		pb.runs = phase_runs[k]
+		pb.player = player
+		level_root.add_child(pb)
+	_add_chimes(chime_runs["a"], chime_runs["b"], bell_cells)
+	var tb: Node2D = null
+	if not (timed_runs[0].is_empty() and timed_runs[1].is_empty()):
+		tb = TimedBlocks.new()
+		tb.runs_1 = timed_runs[0]
+		tb.runs_2 = timed_runs[1]
+		tb.player = player
+		level_root.add_child(tb)
+	if not eyes.is_empty():
+		watchers = Watchers.new()
+		watchers.eyes = eyes
+		watchers.player = player
+		level_root.add_child(watchers)
+	return tb
+
+
+# Le rail d'une plateforme mobile : un point au centre de chaque case qu'elle balaie, de A à B
+func _rail_points(rect: Rect2, course: Vector2i) -> Array:
+	var pts := []
+	var steps := maxi(absi(course.x), absi(course.y))
+	if steps == 0:
+		return pts
+	var cells := Vector2i(rect.size / TILE)
+	for k in steps + 1:
+		var shift := Vector2(course) * TILE * (float(k) / steps)
+		for j in cells.y:
+			for i in cells.x:
+				var p := rect.position + shift + Vector2(i, j) * TILE + Vector2(8, 8)
+				if not pts.has(p):
+					pts.append(p)
+	return pts
 
 
 # Les indices écrivent {jump}, {dash}, {left}, {right} : on y met les touches choisies par le joueur
@@ -692,17 +717,17 @@ func _hint_text(t: String) -> String:
 	return t
 
 
-# Cloches (B) et blocs de carillon (a solides au repos, b solides une fois sonnés)
-func _add_chimes(cells: Dictionary) -> void:
-	if cells["a"].is_empty() and cells["b"].is_empty() and cells["B"].is_empty():
+# Cloches (tuiles B) et blocs de carillon (solides au repos, ou une fois sonnés)
+func _add_chimes(runs_a: Array, runs_b: Array, bell_cells: Array) -> void:
+	if runs_a.is_empty() and runs_b.is_empty() and bell_cells.is_empty():
 		return
 	chimes = ToggleBlocks.new()
-	chimes.runs_a = _merge_cells(cells["a"])
-	chimes.runs_b = _merge_cells(cells["b"])
+	chimes.runs_a = runs_a
+	chimes.runs_b = runs_b
 	chimes.player = player
 	level_root.add_child(chimes)
 	var bells := []
-	for c in cells["B"]:
+	for c in bell_cells:
 		var bell := Bell.new()
 		bell.position = Vector2(c) * TILE + Vector2(8, 8)
 		bell.player = player
@@ -816,62 +841,12 @@ func _mirror_checkpoint(cp) -> void:
 			other.light_up()
 
 
-# Chapitre Poursuite : l'ombre qui refait le chemin du fantôme, la marée qui monte
-func _add_pursuers(has_chaser: bool, dark_top: float, companion: bool) -> void:
-	if dark_top >= 0.0:
-		dark = RisingDark.new()
-		dark.player = player
-		dark.width = room_size.x
-		dark.start_top = dark_top
-		level_root.add_child(dark)
-	if has_chaser:
-		chaser = ShadowChaser.new()
-		chaser.player = player
-		chaser.companion = companion
-		level_root.add_child(chaser)
-
-
 # Une case (chaîne de caractères, un par calque) contient-elle l'un de ces éléments ?
 func _has_any(here: String, chars: Array) -> bool:
 	for c in here:
 		if c in chars:
 			return true
 	return false
-
-
-func _cell(grid: Array, c: Vector2i) -> String:
-	if c.y < 0 or c.y >= grid.size() or c.x < 0 or c.x >= grid[c.y].size():
-		return "#"
-	return grid[c.y][c.x]
-
-
-# Regroupe des tuiles en rectangles (rangées, puis étendues vers le bas)
-func _merge_cells(cells: Array) -> Array:
-	var todo := {}
-	for c in cells:
-		todo[c] = true
-	var rects := []
-	cells.sort_custom(func(a, b): return a.y < b.y or (a.y == b.y and a.x < b.x))
-	for c in cells:
-		if not todo.has(c):
-			continue
-		var rw := 1
-		while todo.has(c + Vector2i(rw, 0)):
-			rw += 1
-		var rh := 1
-		var grow := true
-		while grow:
-			for i in rw:
-				if not todo.has(c + Vector2i(i, rh)):
-					grow = false
-					break
-			if grow:
-				rh += 1
-		for j in rh:
-			for i in rw:
-				todo.erase(c + Vector2i(i, j))
-		rects.append(Rect2(Vector2(c) * TILE, Vector2(rw, rh) * TILE))
-	return rects
 
 
 func _add_spike(base: Vector2, kind: String) -> void:
@@ -1057,8 +1032,8 @@ func _on_player_died() -> void:
 		cb.reset()
 	if chimes:
 		chimes.reset()
-	if chaser:
-		chaser.reset()
+	for ch in chasers:
+		ch.reset()
 	if reflection:
 		arrived.clear()
 		_freeze_ghost(player, false)

@@ -1,5 +1,5 @@
-# Courant d'air spectral : une zone qui pousse le fantôme tant qu'il est dedans, vers le haut (|),
-# le bas (_), la gauche (() ou la droite ()).
+# Vent (élément levels/elements/vent.gd) : une zone qui pousse le fantôme tant qu'il est dedans,
+# vers le haut, le bas, la gauche ou la droite, plus ou moins fort.
 extends Node2D
 
 const DIRS := [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]
@@ -7,6 +7,7 @@ const DIRS := [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]
 var rect: Rect2
 var player: CharacterBody2D
 var dir := 0  # index dans DIRS
+var force := 1.0  # 1 = vent normal
 
 
 func _ready() -> void:
@@ -21,7 +22,6 @@ func _ready() -> void:
 	var wisps := CPUParticles2D.new()
 	wisps.material = mat
 	wisps.amount = int(clampf(rect.size.x * rect.size.y / 300.0, 8, 80))
-	wisps.lifetime = length / 90.0
 	# Elles naissent sur le bord d'où vient le vent
 	wisps.position = rect.get_center() - flow * length * 0.5
 	wisps.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
@@ -29,8 +29,9 @@ func _ready() -> void:
 	wisps.direction = flow
 	wisps.spread = 2
 	wisps.gravity = Vector2.ZERO
-	wisps.initial_velocity_min = 80
-	wisps.initial_velocity_max = 100
+	wisps.lifetime = length / (90.0 * force)
+	wisps.initial_velocity_min = 80 * force
+	wisps.initial_velocity_max = 100 * force
 	wisps.scale_amount_min = 1
 	wisps.scale_amount_max = 2
 	wisps.color_ramp = preload("res://scripts/player.gd").fade_gradient(Color(1, 1, 1, 0.6))
@@ -42,6 +43,7 @@ func _physics_process(_delta: float) -> void:
 	var body_rect := Rect2(player.global_position - Vector2(5, 7), Vector2(10, 14))
 	if not player.dead and rect.intersects(body_rect):
 		player.wind_frames[dir] = Engine.get_physics_frames()
+		player.wind_power[dir] = force
 
 
 func _draw() -> void:
