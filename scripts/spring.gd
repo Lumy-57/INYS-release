@@ -1,8 +1,7 @@
 # Ressort : propulse le fantôme vers le haut et lui rend son dash.
 extends Area2D
 
-const LAUNCH_SPEED := 430.0
-
+var launch_speed := 430.0
 var player: CharacterBody2D
 var squash := 0.0
 
@@ -23,7 +22,7 @@ func _on_body(body: Node) -> void:
 	# Le fantôme ou son reflet (chapitre Miroir)
 	if not (body is CharacterBody2D and body.has_method("launch")) or body.dead or body.velocity.y < -50.0:
 		return
-	body.launch(Vector2(body.velocity.x, -LAUNCH_SPEED))
+	body.launch(Vector2(body.velocity.x, -launch_speed))
 	squash = 1.0
 	launched.emit(self)
 

@@ -3,6 +3,8 @@ extends Node2D
 
 var rect: Rect2
 var player: CharacterBody2D
+var drag := 200.0       # freinage de l'élan vertical, px/s²
+var refill := true      # le dash s'y recharge
 
 
 func _ready() -> void:
@@ -37,6 +39,8 @@ func _physics_process(_delta: float) -> void:
 	var body_rect := Rect2(player.global_position - Vector2(5, 7), Vector2(10, 14))
 	if not player.dead and rect.intersects(body_rect):
 		player.zero_g_frame = Engine.get_physics_frames()
+		player.zero_g_drag = drag
+		player.zero_g_refill = refill
 
 
 func _draw() -> void:

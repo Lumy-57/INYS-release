@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://levels/elements/pierre_fissuree.gd" id="1_pierre_fissuree"]
+
+[node name="PierreFissuree" type="Node2D"]
+script = ExtResource("1_pierre_fissuree")

@@ -1,7 +1,7 @@
-# Yeux qui regardent. Chacun s'ouvre et se ferme sur un cycle commun à tout le niveau :
-# "Y" au début du cycle, "y" décalé d'un demi-cycle. Ouvert, son regard balaie la salle
-# jusqu'aux murs (les blocs solides cachent aussi). Rester dans un regard fait monter
-# l'exposition ; pleine, elle tue. À l'abri, elle retombe.
+# Yeux qui regardent. Chacun s'ouvre et se ferme sur un cycle commun à tout le niveau, avec son
+# décalage (0 : au début du cycle, 0,5 : une demi-période plus tard) et sa portée. Ouvert, son
+# regard balaie la salle jusqu'aux murs (les blocs solides cachent aussi). Rester dans un
+# regard fait monter l'exposition ; pleine, elle tue. À l'abri, elle retombe.
 extends Node2D
 
 const CLOSED := 1.8       # secondes paupière fermée
@@ -13,7 +13,7 @@ const EXPOSE_TIME := 0.55 # secondes de regard continu avant de mourir
 const RECOVER := 1.5      # l'exposition retombe 1,5 fois plus vite qu'elle ne monte
 const RAYS := 72
 
-var eyes: Array = []      # [position, décalage] ; rempli par main avant _ready
+var eyes: Array = []      # [position, décalage, portée] ; rempli par main avant _ready
 var player: CharacterBody2D
 var t := 0.0
 var exposure := 0.0
@@ -54,11 +54,11 @@ func _physics_process(delta: float) -> void:
 		if not is_open(i):
 			fans[i] = PackedVector2Array()
 			continue
-		fans[i] = _fan(space, pos, exclude)
+		fans[i] = _fan(space, pos, _range(i), exclude)
 		if player.dead or not player.is_physics_processing():
 			continue
 		var to: Vector2 = player.global_position
-		if pos.distance_to(to) > RANGE:
+		if pos.distance_to(to) > _range(i):
 			continue
 		var q := PhysicsRayQueryParameters2D.create(pos, to)
 		q.exclude = exclude
@@ -76,10 +76,14 @@ func _physics_process(delta: float) -> void:
 		exposure = maxf(exposure - delta * RECOVER / EXPOSE_TIME, 0.0)
 
 
-func _fan(space: PhysicsDirectSpaceState2D, pos: Vector2, exclude: Array) -> PackedVector2Array:
+func _range(i: int) -> float:
+	return eyes[i][2] if eyes[i].size() > 2 else RANGE
+
+
+func _fan(space: PhysicsDirectSpaceState2D, pos: Vector2, reach: float, exclude: Array) -> PackedVector2Array:
 	var pts := PackedVector2Array()
 	for k in RAYS:
-		var to := pos + Vector2.from_angle(TAU * k / RAYS) * RANGE
+		var to := pos + Vector2.from_angle(TAU * k / RAYS) * reach
 		var q := PhysicsRayQueryParameters2D.create(pos, to)
 		q.exclude = exclude
 		var hit := space.intersect_ray(q)

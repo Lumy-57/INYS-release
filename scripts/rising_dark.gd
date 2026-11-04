@@ -3,14 +3,14 @@
 # Après une mort, elle repart un peu en dessous de la bougie.
 extends Node2D
 
-const SPEED := 26.0        # px/s
-const REACH := 150.0       # au-delà de cet écart sous le fantôme, elle rattrape
-const CATCH_UP := 1.6      # px/s de plus par pixel d'écart en trop
-const BELOW_RESPAWN := 96.0
+var speed := 26.0          # px/s
+var reach := 150.0         # au-delà de cet écart sous le fantôme, elle rattrape
+var catch_up := 1.6        # px/s de plus par pixel d'écart en trop
+var below_respawn := 96.0
 
 var player: CharacterBody2D
 var width := 480.0
-var start_top := 0.0       # ligne de départ, donnée par "~"
+var start_top := 0.0       # ligne de départ : la rangée de l'élément Marée
 var top := 0.0
 var moving := false
 var anchor := Vector2.INF
@@ -26,7 +26,7 @@ func _ready() -> void:
 
 
 func reset(respawn: Vector2) -> void:
-	top = maxf(start_top, respawn.y + BELOW_RESPAWN)
+	top = maxf(start_top, respawn.y + below_respawn)
 	moving = false
 	anchor = Vector2.INF
 
@@ -40,8 +40,8 @@ func _physics_process(delta: float) -> void:
 		moving = player.global_position.distance_to(anchor) > 2.0
 		return
 	var feet := player.global_position.y + 7.0
-	var speed := SPEED + maxf(top - feet - REACH, 0.0) * CATCH_UP
-	top -= speed * delta
+	var rise := speed + maxf(top - feet - reach, 0.0) * catch_up
+	top -= rise * delta
 	if feet > top + 3.0:
 		player.die()
 

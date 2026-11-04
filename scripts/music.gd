@@ -220,8 +220,8 @@ func _pick_clock() -> void:
 	elif mode == "eyes" and is_instance_valid(eyes_clock):
 		clock = eyes_clock
 		clock_period = Watchers.PERIOD
-		# On suit le premier œil « Y » (début de cycle) s'il y en a un, sinon un « y »
-		clock_shift = 0.5 * Watchers.PERIOD
+		# On suit un œil sans décalage (début de cycle) s'il y en a un, sinon le premier œil
+		clock_shift = eyes_clock.eyes[0][1] * Watchers.PERIOD if eyes_clock.eyes.size() > 0 else 0.0
 		for e in eyes_clock.eyes:
 			if e[1] == 0.0:
 				clock_shift = 0.0

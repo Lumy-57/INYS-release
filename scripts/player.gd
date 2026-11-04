@@ -60,7 +60,10 @@ var dead := false
 var mirror := false  # reflet du chapitre Miroir : gauche et droite inversées
 # Dernière image passée dans un courant d'air, par sens : haut, bas, gauche, droite (updraft.gd)
 var wind_frames := [-10, -10, -10, -10]
+var wind_power := [1.0, 1.0, 1.0, 1.0]  # force de ces courants (1 = normal)
 var zero_g_frame := -10  # posé par les zones de zéro gravité (zero_gravity.gd)
+var zero_g_drag := ZERO_G_DRAG  # freinage et recharge du dash de la dernière zone traversée
+var zero_g_refill := true
 var afterimage_timer := 0.0
 
 var visual: Node2D
@@ -149,7 +152,7 @@ func _physics_process(delta: float) -> void:
 	else:
 		coyote -= delta
 	# Zéro gravité : le dash revient dès qu'il est fini, même en l'air
-	if zero_g and dash_timer <= 0.0:
+	if zero_g and zero_g_refill and dash_timer <= 0.0:
 		dashes = MAX_DASHES
 
 	if Input.is_action_just_pressed("jump"):
@@ -195,15 +198,15 @@ func _physics_process(delta: float) -> void:
 		max_fall = WALL_SLIDE_MAX
 	if wind.y < 0.0:
 		# Courant d'air : on monte, sans couper le saut
-		velocity.y = move_toward(velocity.y, -UPDRAFT_SPEED, UPDRAFT_ACCEL * delta)
+		velocity.y = move_toward(velocity.y, UPDRAFT_SPEED * wind.y, UPDRAFT_ACCEL * delta)
 		jumping = false
 	elif wind.y > 0.0:
 		# Vent vers le bas : il plaque le fantôme, plus vite qu'une chute
-		velocity.y = move_toward(velocity.y, WIND_DOWN_SPEED, UPDRAFT_ACCEL * delta)
+		velocity.y = move_toward(velocity.y, WIND_DOWN_SPEED * wind.y, UPDRAFT_ACCEL * delta)
 		jumping = false
 	elif zero_g:
 		# Zéro gravité : on flotte sur son élan, qui s'éteint doucement
-		velocity.y = move_toward(velocity.y, 0.0, ZERO_G_DRAG * delta)
+		velocity.y = move_toward(velocity.y, 0.0, zero_g_drag * delta)
 	else:
 		velocity.y = move_toward(velocity.y, max_fall, g * delta)
 
@@ -225,13 +228,14 @@ func _physics_process(delta: float) -> void:
 	_after_move(fall)
 
 
-# Somme des courants d'air où se trouve le fantôme (haut et bas s'annulent, comme gauche et droite)
+# Somme des courants d'air où se trouve le fantôme, selon leur force (haut et bas s'annulent,
+# comme gauche et droite)
 func _wind() -> Vector2:
 	var w := Vector2.ZERO
 	var now := Engine.get_physics_frames()
 	for i in 4:
 		if now - wind_frames[i] <= 1:
-			w += [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT][i]
+			w += [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT][i] * wind_power[i]
 	return w
 
 

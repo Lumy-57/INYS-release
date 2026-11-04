@@ -1,28 +1,21 @@
 # Les niveaux du jeu, dans l'ordre de levels/list.tres. Chaque niveau est une scène (levels/…/*.tscn)
 # peinte dans l'éditeur Godot : voir docs/niveaux.md. Au chargement, chaque scène est relue en
 # dictionnaire, au format que main.gd construit :
-#  "name", "chapter", "hints" ([x, y, texte] en cases) et "map" (une chaîne par rangée, un caractère
-#  par tuile de 16 px), plus "bside" (face B) et sa "line", "epilogue", "colors" (teinte de l'épilogue)
-#  et "companion" (l'ombre H marche avec le fantôme sans le toucher) quand ils sont mis.
+#  "name", "chapter", "hints" ([x, y, texte] en cases), "map" (une chaîne par rangée, un caractère
+#  par tuile de 16 px) et "elements" (les éléments réglables : "type", "cell" et leurs réglages, voir
+#  levels/elements/), plus "bside" (face B) et sa "line", "epilogue" et "colors" (teinte de
+#  l'épilogue) quand ils sont mis.
 # Les caractères de la carte (une tuile de la palette levels/tiles.png chacun) :
 #  # mur   ^ v < > pics   P départ   C bougie (checkpoint)
 #  D cristal de dash   E sortie   . vide
-#  L bloc de lumière : solide seulement quand le fantôme brille (dash disponible)
-#  O bloc d'ombre : solide seulement quand le fantôme est éteint (dash utilisé)
-#  X pierre fissurée : s'effondre peu après qu'on la touche, puis revient
-#  | courant d'air spectral : soulève le fantôme
 #  * étincelle (objet à collectionner, facultatif)
-#  S ressort   M plateforme mobile horizontale   W plateforme mobile verticale
-#  - rail : la course des plateformes mobiles
-#  B cloche : inverse les blocs de carillon   a solide au repos   b solide une fois sonné
-#  1 2 blocs rythmés : 1 solides pendant la première moitié du cycle, 2 pendant la seconde
-#  H ombre poursuivante : refait le chemin du fantôme avec un temps de retard
-#  ~ marée de ténèbres : sa ligne marque où elle commence, puis elle monte
-#  Y y œil qui regarde : Y s'ouvre au début du cycle, y une demi-période plus tard
+#  B cloche : inverse les blocs de carillon (éléments BlocCarillon)
 #  R reflet : contrôlé en même temps que le fantôme, gauche et droite inversées   = vitre
 #  i pierre cachée : invisible, n'apparaît et ne porte que près de la petite orbe
 #  e sortie secrète : une seule par chapitre, elle ouvre la face B du chapitre
 #  % fausse paroi : a l'air d'un mur, mais on passe au travers (cache les sorties secrètes)
+# Vent, zéro gravité, blocs de lumière et d'ombre, pierres fissurées, ressorts, plateformes
+# mobiles, blocs de carillon, blocs rythmés, yeux, marée et ombres poursuivantes sont des éléments.
 extends RefCounted
 
 const LIST = preload("res://levels/list.tres")

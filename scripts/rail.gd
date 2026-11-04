@@ -1,7 +1,7 @@
-# Rail discret qui montre la course d'une plateforme mobile.
+# Rail discret qui montre la course d'une plateforme mobile : un point par case de sa course.
 extends Node2D
 
-var cells: Array = []
+var points: Array = []   # Vector2, en pixels
 
 
 func _ready() -> void:
@@ -11,6 +11,5 @@ func _ready() -> void:
 
 
 func _draw() -> void:
-	for c in cells:
-		var center := Vector2(c) * 16.0 + Vector2(8, 8)
-		draw_rect(Rect2(center - Vector2(1, 1), Vector2(2, 2)), Color(1, 1, 1, 0.25))
+	for p in points:
+		draw_rect(Rect2(p - Vector2(1, 1), Vector2(2, 2)), Color(1, 1, 1, 0.25))

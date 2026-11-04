@@ -1,8 +1,9 @@
 # Créer et modifier les niveaux dans l'éditeur Godot
 
 Chaque niveau est une scène : `levels/<chapitre>/<niveau>.tscn` (par exemple
-`levels/01_le_seuil/eveil.tscn`). On la peint dans l'éditeur, tuile par tuile, comme une
-carte en mosaïque. Au lancement, le jeu relit chaque scène et construit le niveau exactement
+`levels/01_le_seuil/eveil.tscn`). On peint le décor dans l'éditeur, tuile par tuile, comme une
+carte en mosaïque, et on pose par-dessus les **éléments réglables** (vent, plateformes mobiles,
+marée…), qui ont chacun leurs propres réglages. Au lancement, le jeu relit chaque scène et construit le niveau exactement
 comme avant (lumières, collisions, liserés, entités) : le rendu en jeu ne change pas, seule la
 façon de dessiner change.
 
@@ -12,7 +13,10 @@ façon de dessiner change.
 
 ```
 Niveau        (Node2D, script levels/level.gd) : nom, chapitre, options dans l'Inspecteur
-├── Carte     (TileMapLayer) : toute la carte, une tuile de 16 px par case
+├── Carte     (TileMapLayer) : le décor, une tuile de 16 px par case
+├── Éléments  (Node2D) : les éléments réglables (levels/elements/), chacun avec ses réglages
+│   ├── Vent              (levels/elements/vent.tscn)
+│   └── …
 └── Indices   (Node2D)
     ├── Indice    (levels/hint.tscn) : un texte que dit l'orbe quand on approche
     └── …
@@ -52,25 +56,56 @@ règles n'ont pas changé :
   rangée, c'est la chute ; les tuiles hors du cadre sont ignorées.
 - **Départ `P`** : un seul par niveau, le fantôme apparaît sur cette case.
 - **Bougie `C`, ressort `S`, sortie `E`** : posés sur le sol, dans la case juste au-dessus.
-- **Plateformes mobiles `M` / `W`** : une plateforme de plusieurs cases se peint en plusieurs
-  tuiles côte à côte ; sa course est faite des rails `-` qui la prolongent (à gauche et à
-  droite pour `M`, au-dessus et au-dessous pour `W`).
-- **Marée `~`** : une seule tuile suffit, sa rangée marque où la marée commence.
-- **Ombre `H`** : sa présence dans le niveau suffit, elle part du fantôme.
+- **Cloche `B`** : la toucher inverse tous les blocs de carillon du niveau (élément
+  BlocCarillon).
 - **Reflet `R`** et **vitre `=`** (Miroir) : les bougies vont par paires, symétriques par
   rapport au milieu de la salle.
 - **Sortie secrète `e`** : une par chapitre, cachée sous des fausses parois `%`. Elle ouvre la
   face B du chapitre.
 - **Étincelle `*`** : une par niveau ; elle ouvre le fragment du journal de ce niveau.
-- **Courants d'air `|` `_` `(` `)`** : une zone (peinte en autant de tuiles qu'on veut) qui
-  pousse le fantôme tant qu'il est dedans, vers le haut, le bas, la gauche ou la droite (la
-  flèche de l'icône). Vers le haut, il le soulève ; vers le bas, il le plaque plus vite qu'une
-  chute ; de côté, il l'emporte au sol comme en l'air, et on avance à peine contre lui.
-  Le dash passe à travers sans être dévié.
-- **Zéro gravité `0`** (voile pointillé à l'éclair) : dedans, le fantôme ne tombe plus et
-  flotte sur son élan, qui s'éteint doucement ; son dash se recharge dès qu'il est fini, même
-  en l'air (c'est la seule exception à « le dash ne revient qu'au sol »). On peut donc y
-  enchaîner les dashes pour traverser ou ressortir dans n'importe quelle direction.
+
+## Les éléments réglables
+
+Tout ce qui bouge ou qui a des réglages n'est plus une tuile mais un **élément** : un nœud
+qu'on pose dans le niveau et qu'on règle dans l'Inspecteur, un par un. Il n'y a qu'un élément
+par mécanique : un seul vent (sa direction est un réglage), un seul bloc de lumière et d'ombre
+(son mode est un réglage), etc.
+
+**Poser un élément** : dans le dock Système de fichiers, ouvre `levels/elements/` et glisse la
+scène de l'élément dans la vue 2D. Range-le ensuite sous le nœud **Éléments** (glisser-déposer
+dans l'arbre de la scène ; ce n'est pas obligatoire, mais c'est plus clair). Le plus simple
+reste souvent de dupliquer un élément déjà posé (Ctrl + D) puis de le déplacer.
+
+**Le placer** : un élément se cale tout seul sur la grille de 16 px. Son nœud est le coin en
+haut à gauche de sa première case ; **Size** donne sa taille en cases (largeur, hauteur). Dans
+l'éditeur, chaque élément se dessine avec ses réglages (flèches du vent, course de la
+plateforme, portée de l'œil…). Un élément hors du cadre orange est signalé par le triangle
+jaune sur « Niveau ».
+
+| Élément | Remplace | Réglages |
+|---|---|---|
+| **Vent** (`vent.tscn`) | `\|` `_` `(` `)` | **Size** ; **Direction** : haut, bas, gauche, droite ; **Force** : 1 = normal (vers le haut, il monte à 170 px/s ; vers le bas, 300 px/s ; de côté, il ajoute 110 px/s), 2 = deux fois plus fort. |
+| **Zéro gravité** (`zero_gravite.tscn`) | `0` | **Size** ; **Freinage** de l'élan vertical (200 = normal, 0 = il ne s'éteint jamais) ; **Recharge Dash** : le dash revient dès qu'il est fini, même en l'air. |
+| **Bloc lumière / ombre** (`bloc_lumiere_ombre.tscn`) | `L` `O` | **Size** ; **Mode** : Lumière (solide quand le fantôme brille, dash disponible) ou Ombre (solide quand il est éteint). |
+| **Pierre fissurée** (`pierre_fissuree.tscn`) | `X` | **Size** ; **Tremble** : secondes avant la chute (0,45) ; **Retour** : secondes avant qu'elle revienne (2). |
+| **Ressort** (`ressort.tscn`) | `S` | **Force** : vitesse de la propulsion (430). Posé dans la case juste au-dessus du sol ; l'aperçu montre à peu près la hauteur atteinte. |
+| **Plateforme mobile** (`plateforme.tscn`) | `M` `W` `-` | **Size** ; **Course** : le bout B en cases depuis le bout A (là où est le nœud) : (6, 0) = 6 cases à droite, (0, -4) = 4 cases plus haut, (4, -4) = en diagonale ; **Vitesse** en px/s (60) ; **Pause** à chaque bout (0,4 s) ; **Depart** : où elle est au lancement, de 0 (en A) à 1 (en B). Le rail est dessiné tout seul. |
+| **Bloc de carillon** (`bloc_carillon.tscn`) | `a` `b` | **Size** ; **Etat** : solide au repos, ou solide une fois sonné. Les cloches restent des tuiles `B`. |
+| **Bloc rythmé** (`bloc_rythme.tscn`) | `1` `2` | **Size** ; **Temps** : solide pendant la première ou la seconde moitié du cycle. Le cycle (2,4 s) est commun au niveau, la musique le suit. |
+| **Œil** (`oeil.tscn`) | `Y` `y` | **Decalage** : moment où il s'ouvre dans le cycle commun (0 = l'ancien `Y`, 0,5 = l'ancien `y`) ; **Portee** du regard en px (150). |
+| **Marée** (`maree.tscn`) | `~` | Sa rangée marque où elle commence. **Vitesse** de montée en px/s (26) ; **Portee** : écart sous le fantôme au-delà duquel elle accélère (150) ; **Rattrapage** (1,6) ; **Sous Bougie** : où elle repart après une mort (96 px sous la bougie). Une seule par niveau. |
+| **Ombres poursuivantes** (`ombres.tscn`) | `H` | **Nombre** d'ombres ; **Retard** de la première sur le fantôme (1,1 s) ; **Ecart** : retard en plus de chaque ombre sur la précédente ; **Vitesse** : 1 = au même pas que le fantôme, plus vite elles le rattrapent peu à peu ; **Compagne** (épilogue) : elle marche avec lui sans le toucher. Elles partent toujours du fantôme : la place du nœud ne compte pas. |
+
+Quelques précisions sur le comportement :
+
+- **Vent** : vers le haut, il soulève le fantôme ; vers le bas, il le plaque plus vite qu'une
+  chute ; de côté, il l'emporte au sol comme en l'air, et on avance à peine contre lui. Le dash
+  passe à travers sans être dévié. Deux vents opposés qui se chevauchent s'annulent (selon leur
+  force).
+- **Zéro gravité** : dedans, le fantôme ne tombe plus et flotte sur son élan. Avec la recharge,
+  c'est la seule exception à « le dash ne revient qu'au sol » : on peut y enchaîner les dashes.
+- Les réglages par défaut sont ceux d'avant : les niveaux existants ont été convertis et se
+  jouent comme avant.
 
 ## Les indices
 
@@ -90,7 +125,6 @@ règles n'ont pas changé :
 | **Chapter** | Chapitre (musique, carte d'ouverture, écran des chapitres). Un nouveau chapitre s'ajoute à la liste en haut de `levels/level.gd`, et a besoin d'un thème dans `music_themes.gd` et d'une vignette dans `illustrations.gd`. |
 | **Bside** / **Line** | Face B du chapitre, et sa phrase sur la carte d'ouverture. |
 | **Epilogue** / **Colors** | Niveau de l'épilogue, et sa teinte de 0 (noir et blanc) à 1. |
-| **Companion** | L'ombre `H` marche avec le fantôme sans le toucher. |
 | **Auto Corner** / **Room Corner** | Coin en haut à gauche de la salle : automatique (tuile la plus en haut à gauche), ou la case choisie. |
 | **Room Size** | Taille de la salle en cases depuis son coin ; (0, 0) : automatique. |
 
@@ -116,6 +150,11 @@ suivants ; il faut alors insérer un fragment au même endroit.
 
 - La palette (`levels/tiles.png`) se régénère avec `python3 tools/make_tiles.py levels/tiles.png`.
   L'ordre des icônes doit rester celui de `CHARS` dans `levels/level.gd`.
-- Une nouvelle sorte de tuile : ajouter son icône à la fin de `tools/make_tiles.py`, son
-  caractère à la fin de `CHARS`, la tuile dans `levels/tiles.tres` (éditeur de TileSet : clic sur
-  la case de l'atlas), puis son cas dans `scripts/main.gd` (`_load_level`).
+- Une nouvelle sorte de tuile (décor sans réglage) : ajouter son icône à la fin de
+  `tools/make_tiles.py`, son caractère à la fin de `CHARS`, la tuile dans `levels/tiles.tres`
+  (éditeur de TileSet : clic sur la case de l'atlas), puis son cas dans `scripts/main.gd`
+  (`_load_level`).
+- Un nouvel élément réglable : un script dans `levels/elements/` qui étend `LevelElement`
+  (`element.gd`), avec ses réglages en `@export`, son aperçu dans `_draw()` et ses réglages
+  pour le jeu dans `element_data()` (un dictionnaire avec un `"type"`) ; une scène `.tscn` d'un
+  seul nœud avec ce script ; puis son cas dans `scripts/main.gd` (`_add_elements`).

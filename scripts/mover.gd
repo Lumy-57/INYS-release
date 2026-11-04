@@ -1,15 +1,14 @@
-# Plateforme mobile : fait l'aller-retour le long de son rail (cases "-" de la carte).
+# Plateforme mobile (élément levels/elements/plateforme.gd) : fait l'aller-retour en ligne droite
+# entre ses deux bouts, A et B, avec un arrêt à chaque bout.
 extends AnimatableBody2D
 
-const SPEED := 60.0
-const PAUSE := 0.4
-
 var size := Vector2.ZERO
-var start := Vector2.ZERO     # position de départ (coin haut gauche)
-var low := 0.0                # décalage minimal le long de l'axe, en pixels
-var high := 0.0               # décalage maximal
-var vertical := false
-var offset := 0.0
+var start := Vector2.ZERO     # bout A (coin haut gauche), en pixels
+var course := Vector2.ZERO    # de A à B, en pixels
+var speed := 60.0             # px/s
+var pause := 0.4              # secondes d'arrêt à chaque bout
+var start_at := 0.0           # position de départ : 0 = en A, 1 = en B
+var offset := 0.0             # distance parcourue depuis A
 var dir := 1.0
 var wait := 0.0
 
@@ -26,25 +25,34 @@ func _ready() -> void:
 	cs.shape = r
 	cs.position = size * 0.5
 	add_child(cs)
-	position = start
-	if high <= 0.0:
+	offset = clampf(start_at, 0.0, 1.0) * course.length()
+	if start_at >= 1.0:
 		dir = -1.0
+	position = _at(offset)
+
+
+func _at(d: float) -> Vector2:
+	var length := course.length()
+	return start + (course * (d / length) if length > 0.0 else Vector2.ZERO)
 
 
 func _physics_process(delta: float) -> void:
+	var length := course.length()
+	if length <= 0.0:
+		return
 	if wait > 0.0:
 		wait -= delta
 		return
-	offset += dir * SPEED * delta
-	if offset >= high:
-		offset = high
+	offset += dir * speed * delta
+	if offset >= length:
+		offset = length
 		dir = -1.0
-		wait = PAUSE
-	elif offset <= low:
-		offset = low
+		wait = pause
+	elif offset <= 0.0:
+		offset = 0.0
 		dir = 1.0
-		wait = PAUSE
-	position = start + (Vector2(0, offset) if vertical else Vector2(offset, 0))
+		wait = pause
+	position = _at(offset)
 
 
 func _draw() -> void:

@@ -54,6 +54,11 @@ toujours le fantôme. Touches gardées dans `user://save/controls.cfg`.
   secousse d'écran. Sauter pendant un dash au sol garde la vitesse.
 - **La lumière raconte l'état** : quand le dash est épuisé, le fantôme pâlit
   et sa lumière faiblit.
+- Les lettres entre parenthèses ci-dessous sont celles de l'ancien format texte. Les mécaniques
+  qui ont des réglages (lumière et ombre, pierres fissurées, vent, ressorts, plateformes, blocs de
+  carillon et rythmés, ombres, marée, yeux) sont maintenant des **éléments réglables** qu'on pose
+  dans la scène du niveau (`levels/elements/`, voir [niveaux.md](niveaux.md)) ; les valeurs
+  données ici sont leurs réglages par défaut.
 - **Blocs de lumière et d'ombre** : les blocs clairs (`L`) n'existent que quand le fantôme
   brille (dash disponible), les blocs hachurés (`O`) seulement quand il est éteint (dash utilisé).
   Dasher fait donc disparaître les uns et apparaître les autres. L'ombre porte le fantôme mais
@@ -260,6 +265,7 @@ Les sauvegardes sont rangées par numéro de niveau ; `save_data.gd` garde la li
 - `scripts/phase_blocks.gd` : blocs de lumière et d'ombre.
 - `scripts/crumble_block.gd`, `scripts/updraft.gd` : pierres fissurées et courants d'air.
 - `scripts/spring.gd`, `scripts/mover.gd`, `scripts/rail.gd` : ressorts, plateformes mobiles et rails.
+- `levels/elements/` : les éléments réglables posés dans les scènes de niveau (`element.gd` = leur base) ; `main._add_elements` les construit.
 - `scripts/bell.gd`, `scripts/toggle_blocks.gd` : cloches et blocs de carillon.
 - `scripts/timed_blocks.gd` : blocs rythmés.
 - `scripts/shadow_chaser.gd`, `scripts/rising_dark.gd` : ombre poursuivante et marée de ténèbres.
