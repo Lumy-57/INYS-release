@@ -616,6 +616,16 @@ func _add_elements(elements: Array, bell_cells: Array) -> Node2D:
 				cb.crumbled.connect(func(_b): sfx.play("land", 0.3))
 				level_root.add_child(cb)
 				crumbles.append(cb)
+			"exit":
+				var ex := ExitPortal.new()
+				if e["flat"]:
+					ex.flat = true
+					ex.length = e["width"] * TILE - 2.0
+					ex.position = base + Vector2(e["width"] * TILE - 1.0, 8)
+				else:
+					ex.position = base + Vector2(8, 16)
+				ex.entered.connect(_on_exit)
+				level_root.add_child(ex)
 			"spring":
 				var spring := Spring.new()
 				spring.position = base + Vector2(8, 16)

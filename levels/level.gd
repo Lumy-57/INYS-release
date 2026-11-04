@@ -113,8 +113,12 @@ func _get_configuration_warnings() -> PackedStringArray:
 		out.append("Un calque de tuiles a été déplacé : remets sa position à (0, 0), sinon le jeu ne le place pas où on le voit.")
 	if counts.get("P", 0) != 1:
 		out.append("Il faut exactement un départ (fantôme blanc P).")
-	if counts.get("E", 0) == 0:
-		out.append("Il n'y a pas de sortie (E).")
+	var exits: int = counts.get("E", 0)
+	for e in _elements(self):
+		if e.element_data().get("type") == "exit":
+			exits += 1
+	if exits == 0:
+		out.append("Il n'y a pas de sortie (tuile E ou élément Sortie).")
 	return out
 
 
