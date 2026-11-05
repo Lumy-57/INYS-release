@@ -13,6 +13,8 @@ const Checkpoint = preload("res://scripts/checkpoint.gd")
 const ExitPortal = preload("res://scripts/exit_portal.gd")
 const PhaseBlocks = preload("res://scripts/physique/PhaseBlocks.cs")
 const CrumbleBlock = preload("res://scripts/physique/CrumbleBlock.cs")
+const Door = preload("res://scripts/physique/Door.cs")
+const KeyItem = preload("res://scripts/key.gd")
 const Updraft = preload("res://scripts/updraft.gd")
 const ZeroGravity = preload("res://scripts/zero_gravity.gd")
 const Spring = preload("res://scripts/spring.gd")
@@ -68,6 +70,7 @@ var respawn_point := Vector2.ZERO
 var room_size := Vector2.ZERO
 var crystals: Array = []
 var crumbles: Array = []
+var keys: Array = []  # clés du niveau (key.gd) : elles reviennent à leur place après une mort
 var checkpoints: Array = []
 var chimes: Node2D  # blocs de carillon du niveau, s'il y en a
 var chasers: Array = []  # ombres poursuivantes, s'il y en a
@@ -166,6 +169,7 @@ func _ready() -> void:
 		add_shake(2.0)
 		fx.on_dashed(player)
 		hint_orb.dash_ahead(player.DashDir)
+		Settings.rumble(0.35, 0.0, 0.08)
 		sfx.play("dash"))
 	player.connect("Jumped", func():
 		fx.on_jumped(player)
@@ -322,6 +326,7 @@ func _load_level(index: int) -> void:
 	level_root = Node2D.new()
 	world.add_child(level_root)
 	crumbles.clear()
+	keys.clear()
 	chimes = null
 	chasers.clear()
 	dark = null
@@ -382,20 +387,31 @@ func _load_level(index: int) -> void:
 	var body := StaticBody2D.new()
 	level_root.add_child(body)
 
-	# Collision : rectangles fusionnés
+	# Le givre glisse : ses cases ont leur propre corps, dans le groupe « ice », que le fantôme
+	# reconnaît sous ses pieds (Player.cs)
+	var ice_body := StaticBody2D.new()
+	ice_body.add_to_group("ice")
+	level_root.add_child(ice_body)
+	var is_ice := func(x: int, y: int) -> bool:
+		return x >= 0 and x < w and y >= 0 and y < h and "g" in grid[y][x]
+
+	# Collision : rectangles fusionnés, le givre à part
 	var used := {}
 	for y in h:
 		for x in w:
 			if not is_solid.call(x, y) or used.has(Vector2i(x, y)):
 				continue
+			var ice: bool = is_ice.call(x, y)
+			var same := func(cx: int, cy: int) -> bool:
+				return is_solid.call(cx, cy) and is_ice.call(cx, cy) == ice and not used.has(Vector2i(cx, cy))
 			var rw := 1
-			while x + rw < w and is_solid.call(x + rw, y) and not used.has(Vector2i(x + rw, y)):
+			while x + rw < w and same.call(x + rw, y):
 				rw += 1
 			var rh := 1
 			var can_grow := true
 			while can_grow and y + rh < h:
 				for i in rw:
-					if not is_solid.call(x + i, y + rh) or used.has(Vector2i(x + i, y + rh)):
+					if not same.call(x + i, y + rh):
 						can_grow = false
 						break
 				if can_grow:
@@ -408,7 +424,7 @@ func _load_level(index: int) -> void:
 			rect.size = Vector2(rw, rh) * TILE
 			cs.shape = rect
 			cs.position = Vector2(x, y) * TILE + rect.size * 0.5
-			body.add_child(cs)
+			(ice_body if ice else body).add_child(cs)
 
 	# Rendu, ombres et entités
 	var occluders := Node2D.new()
@@ -588,6 +604,8 @@ func _add_elements(elements: Array, bell_cells: Array) -> Node2D:
 	var timed_runs := [[], []]
 	var eyes := []
 	var rails := []
+	var doors := []
+	var key_cells := []
 	for e in elements:
 		var base := Vector2(e["cell"]) * TILE
 		var rect := Rect2(base, Vector2(Vector2i(e.get("size", Vector2i.ONE)).max(Vector2i.ONE)) * TILE)
@@ -627,12 +645,21 @@ func _add_elements(elements: Array, bell_cells: Array) -> Node2D:
 					ex.position = base + Vector2(8, 16)
 				ex.entered.connect(_on_exit)
 				level_root.add_child(ex)
+			"door":
+				var door: StaticBody2D = Door.new()
+				door.Rect = rect
+				door.Link = e["link"]
+				level_root.add_child(door)
+				doors.append(door)
+			"key":
+				key_cells.append([base + Vector2(8, 8), e["link"]])
 			"spring":
 				var spring := Spring.new()
 				spring.position = base + Vector2(8, 16)
 				spring.launch_speed = e["force"]
 				spring.player = player
 				spring.launched.connect(func(_s):
+					Settings.rumble(0.5, 0.2, 0.12)
 					sfx.play("jump", 0.0)
 					add_shake(1.5))
 				level_root.add_child(spring)
@@ -677,6 +704,20 @@ func _add_elements(elements: Array, bell_cells: Array) -> Node2D:
 					ch.speed = e["speed"]
 					level_root.add_child(ch)
 					chasers.append(ch)
+	# Les clés après les portes : chacune connaît toutes les portes du niveau
+	for k in key_cells:
+		var key := KeyItem.new()
+		key.home = k[0]
+		key.link = k[1]
+		key.player = player
+		key.doors = doors
+		key.picked.connect(func(_k): sfx.play("crystal", 0.0))
+		key.used.connect(func(_k):
+			sfx.play("candle", 0.0)
+			add_shake(1.5)
+			Settings.rumble(0.3, 0.3, 0.15))
+		level_root.add_child(key)
+		keys.append(key)
 	if not rails.is_empty():
 		var rail := Rail.new()
 		rail.points = rails
@@ -1035,6 +1076,7 @@ func _on_player_died() -> void:
 	deaths += 1
 	level_deaths += 1
 	sfx.play("death")
+	Settings.rumble(0.6, 0.8, 0.3)
 	# Arrêt sur image d'abord, puis tout part d'un coup : éclats, secousse et disque rayé
 	await fx.on_died(player)
 	music.scratch()
@@ -1045,6 +1087,8 @@ func _on_player_died() -> void:
 		cr.reset()
 	for cb in crumbles:
 		cb.Reset()
+	for k in keys:
+		k.reset()
 	if chimes:
 		chimes.Reset()
 	for ch in chasers:

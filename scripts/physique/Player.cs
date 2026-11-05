@@ -17,6 +17,9 @@ public partial class Player : CharacterBody2D
 	public const float AirAccel = 800f;
 	public const float AirDecel = 600f;
 	public const float OverspeedDecel = 300f;
+	// Sur le givre, on démarre et on freine beaucoup moins vite : on glisse
+	public const float IceAccel = 350f;
+	public const float IceDecel = 110f;
 	public const float Gravity = 950f;
 	public const float ApexGravityMult = 0.5f;
 	public const float ApexThreshold = 40f;
@@ -194,7 +197,10 @@ public partial class Player : CharacterBody2D
 		if (WallLock <= 0f)
 		{
 			float accel;
-			if (onFloor)
+			bool onIce = onFloor && OnIce();
+			if (onIce)
+				accel = ix != 0f ? IceAccel : IceDecel;
+			else if (onFloor)
 				accel = ix != 0f ? GroundAccel : GroundDecel;
 			else
 				accel = ix != 0f ? AirAccel : AirDecel;
@@ -207,7 +213,7 @@ public partial class Player : CharacterBody2D
 				accel = WindSideAccel;
 			// On garde l'élan d'un dash si on pousse dans le même sens
 			if (target != 0f && Mathf.Abs(v.X) > Mathf.Abs(target) && Mathf.Sign(v.X) == Mathf.Sign(target))
-				accel = OverspeedDecel;
+				accel = onIce ? IceDecel : OverspeedDecel;
 			v.X = Mathf.MoveToward(v.X, target, accel * delta);
 		}
 		if (ix != 0f)
@@ -402,6 +408,18 @@ public partial class Player : CharacterBody2D
 		{
 			var c = GetSlideCollision(i);
 			if (c.GetNormal().Y < -0.7f && c.GetCollider() is Node other && !other.IsInGroup("shadow"))
+				return true;
+		}
+		return false;
+	}
+
+	// Vrai si le fantôme se tient sur du givre (corps du groupe « ice », main.gd)
+	bool OnIce()
+	{
+		for (int i = 0; i < GetSlideCollisionCount(); i++)
+		{
+			var c = GetSlideCollision(i);
+			if (c.GetNormal().Y < -0.7f && c.GetCollider() is Node other && other.IsInGroup("ice"))
 				return true;
 		}
 		return false;
