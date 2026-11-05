@@ -36,11 +36,9 @@ func _ready() -> void:
 
 
 func _physics_process(_delta: float) -> void:
-	var body_rect := Rect2(player.global_position - Vector2(5, 7), Vector2(10, 14))
-	if not player.dead and rect.intersects(body_rect):
-		player.zero_g_frame = Engine.get_physics_frames()
-		player.zero_g_drag = drag
-		player.zero_g_refill = refill
+	var body_rect: Rect2 = player.BodyRect()
+	if not player.Dead and rect.intersects(body_rect):
+		player.FeelZeroGravity(drag, refill)
 
 
 func _draw() -> void:

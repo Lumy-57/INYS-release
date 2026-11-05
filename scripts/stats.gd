@@ -20,9 +20,9 @@ func _ready() -> void:
 	if cfg.load(PATH) == OK:
 		for key in KEYS:
 			set(key, cfg.get_value("stats", key, get(key)))
-	main.player.died.connect(func(): deaths += 1)
-	main.player.jumped.connect(func(): jumps += 1)
-	main.player.dashed.connect(func(): dashes += 1)
+	main.player.connect("Died", func(): deaths += 1)
+	main.player.connect("Jumped", func(): jumps += 1)
+	main.player.connect("Dashed", func(): dashes += 1)
 
 
 func _process(delta: float) -> void:

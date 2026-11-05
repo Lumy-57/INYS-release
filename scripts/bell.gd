@@ -22,7 +22,7 @@ func _ready() -> void:
 	cs.shape = rect
 	add_child(cs)
 	light = PointLight2D.new()
-	light.texture = preload("res://scripts/player.gd").make_light_texture()
+	light.texture = preload("res://scripts/glow.gd").make_light_texture()
 	light.texture_scale = 0.3
 	light.energy = 0.35
 	add_child(light)
@@ -30,7 +30,7 @@ func _ready() -> void:
 
 
 func _on_enter(body) -> void:
-	if body != player or player.dead or not armed:
+	if body != player or player.Dead or not armed:
 		return
 	armed = false
 	since = 0.0
@@ -41,7 +41,7 @@ func _physics_process(delta: float) -> void:
 	if armed:
 		return
 	since += delta
-	if not overlaps_body(player) and (player.is_on_floor() or since >= REARM_TIME or player.dead):
+	if not overlaps_body(player) and (player.is_on_floor() or since >= REARM_TIME or player.Dead):
 		armed = true
 
 

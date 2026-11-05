@@ -1,7 +1,7 @@
 # Petite orbe blanche qui tourne autour du fantôme. Quand il approche d'un indice
 # du niveau, elle se pose près de lui et le lui dit, puis repart tourner.
 # Les indices sont donnés par main (déjà passés dans _hint_text) au chargement du niveau.
-# Chapitre Compagnie : elle montre les pierres cachées (orb_blocks.gd). Elle ne tourne
+# Chapitre Compagnie : elle montre les pierres cachées (physique/OrbBlocks.cs). Elle ne tourne
 # plus autour du fantôme : elle se promène devant lui, du côté où il regarde, et prend
 # de l'avance quand il court ou tombe. Quand il dash, elle file devant lui dans la
 # même direction pour éclairer la suite.
@@ -38,7 +38,7 @@ var side := 1.0  # -1 → 1 : côté où elle guide, change en douceur quand il 
 func _ready() -> void:
 	z_index = 5
 	light = PointLight2D.new()
-	light.texture = preload("res://scripts/player.gd").make_light_texture()
+	light.texture = preload("res://scripts/glow.gd").make_light_texture()
 	light.texture_scale = 0.22
 	light.energy = 0.6
 	add_child(light)
@@ -94,7 +94,7 @@ func snap() -> void:
 	flare = 0.0
 	trail.clear()
 	if player:
-		side = float(player.facing)
+		side = float(player.Facing)
 		position = player.global_position + (_lead() if scout else Vector2(0, -12))
 
 
@@ -131,7 +131,7 @@ func _lead() -> Vector2:
 
 # Points qui révèlent les pierres cachées : l'orbe d'abord, puis le fantôme qu'elle entoure
 func lit_points() -> Array:
-	if not scout or player == null or player.dead:
+	if not scout or player == null or player.Dead:
 		return []
 	return [global_position, player.global_position]
 
@@ -174,15 +174,15 @@ func _process(delta: float) -> void:
 	var follow := 9.0
 	if scout:
 		# Elle se promène devant lui, en petites boucles, pour lui montrer la suite
-		side = move_toward(side, float(player.facing), delta * 4.0)
+		side = move_toward(side, float(player.Facing), delta * 4.0)
 		orbit = _lead() + Vector2(sin(a * 0.5) * 4.0, sin(a) * 3.0)
 		follow = 6.0
 	var goal := p + orbit.lerp(perch, ease(speak, -2.0))
 	if flare > 0.0:
 		flare -= delta
 		# La direction du dash peut encore être corrigée pendant le petit gel
-		if player.dash_timer > 0.0:
-			flare_dir = player.dash_dir
+		if player.DashTimer > 0.0:
+			flare_dir = player.DashDir
 		goal = flare_from + flare_dir * FLARE_DIST + Vector2(0, sin(t * 8.0) * 1.5)
 		follow = 16.0
 	position = position.lerp(goal, 1.0 - exp(-delta * follow))

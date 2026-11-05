@@ -20,9 +20,9 @@ func _ready() -> void:
 
 func _on_body(body: Node) -> void:
 	# Le fantôme ou son reflet (chapitre Miroir)
-	if not (body is CharacterBody2D and body.has_method("launch")) or body.dead or body.velocity.y < -50.0:
+	if not (body is CharacterBody2D and body.has_method("Launch")) or body.Dead or body.velocity.y < -50.0:
 		return
-	body.launch(Vector2(body.velocity.x, -launch_speed))
+	body.Launch(Vector2(body.velocity.x, -launch_speed))
 	squash = 1.0
 	launched.emit(self)
 

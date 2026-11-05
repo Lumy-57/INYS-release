@@ -10,7 +10,9 @@
 extends AudioStreamPlayer
 
 const Themes = preload("res://scripts/music_themes.gd")
-const TimedBlocks = preload("res://scripts/timed_blocks.gd")
+# Métronome des blocs rythmés : mêmes valeurs que Period et Warn de scripts/physique/TimedBlocks.cs
+const TIMED_PERIOD := 2.4
+const TIMED_WARN := 0.4
 const Watchers = preload("res://scripts/watchers.gd")
 
 const RATE := 22050
@@ -215,7 +217,7 @@ func _pick_clock() -> void:
 	var mode: String = theme.get("sync", "")
 	if mode == "timed" and is_instance_valid(timed_clock):
 		clock = timed_clock
-		clock_period = TimedBlocks.PERIOD
+		clock_period = TIMED_PERIOD
 		clock_shift = 0.0
 	elif mode == "eyes" and is_instance_valid(eyes_clock):
 		clock = eyes_clock
@@ -229,7 +231,8 @@ func _pick_clock() -> void:
 
 # Position de la boucle qui tombe juste sur l'horloge, en tenant compte de la latence
 func _clock_target() -> float:
-	return fposmod(clock.t + clock_shift + AudioServer.get_output_latency(), clock_period)
+	var now: float = clock.T if clock == timed_clock else clock.t
+	return fposmod(now + clock_shift + AudioServer.get_output_latency(), clock_period)
 
 
 # Petit écart : on accélère ou ralentit d'un poil. Gros écart (pause, mort) : on saute.
@@ -392,7 +395,7 @@ func _pulse(buf: PackedFloat32Array, th: Dictionary, loop: float) -> void:
 				u += beat * 0.5
 	if style == "clock" or style == "clock_soft":
 		var g := 1.0 if style == "clock" else 0.5
-		var half := TimedBlocks.PERIOD * 0.5
+		var half := TIMED_PERIOD * 0.5
 		if style == "clock":
 			for k in beats:
 				_note(buf, k * beat, 0.05, func(t: float) -> float:
@@ -407,7 +410,7 @@ func _pulse(buf: PackedFloat32Array, th: Dictionary, loop: float) -> void:
 			# Cliquetis qui monte pendant que les blocs clignotent
 			for r in 4:
 				var rf := 1800.0 + r * 300.0
-				_note(buf, at + half - TimedBlocks.WARN + r * 0.1, 0.04, func(t: float) -> float:
+				_note(buf, at + half - TIMED_WARN + r * 0.1, 0.04, func(t: float) -> float:
 					return sin(TAU * rf * t) * exp(-t * 110.0) * (0.05 + r * 0.02) * g)
 
 

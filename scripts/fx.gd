@@ -2,7 +2,7 @@
 # poussée de caméra au dash, et transition en iris centrée sur le fantôme.
 extends Node
 
-const PlayerScript = preload("res://scripts/player.gd")
+const Glow = preload("res://scripts/glow.gd")
 
 const HITSTOP := 0.12
 const HARD_LANDING := 230.0
@@ -65,9 +65,9 @@ func _process(delta: float) -> void:
 # --- Poussière -------------------------------------------------------------
 
 func on_jumped(player: Node2D) -> void:
-	if player.wall_lock > 0.0:
+	if player.WallLock > 0.0:
 		# Wall jump : la poussière part du mur, à l'opposé de la direction prise
-		var side: int = -player.facing
+		var side: int = -player.Facing
 		puff(player.global_position + Vector2(side * 6, 2), Vector2(-side, 0), 5)
 	else:
 		puff(player.global_position + Vector2(0, 7), Vector2.UP, 5)
@@ -75,19 +75,19 @@ func on_jumped(player: Node2D) -> void:
 
 func on_landed(player: Node2D) -> void:
 	# Plus la chute est rapide, plus la poussière est fournie et part loin
-	var force := clampf((player.land_speed - 60.0) / (HARD_LANDING - 60.0), 0.0, 1.0)
+	var force := clampf((player.LandSpeed - 60.0) / (HARD_LANDING - 60.0), 0.0, 1.0)
 	var at: Vector2 = player.global_position + Vector2(0, 7)
 	var amount := 2 + int(round(force * 4.0))
 	puff(at, Vector2.LEFT, amount, 0.6 + force * 0.8)
 	puff(at, Vector2.RIGHT, amount, 0.6 + force * 0.8)
-	if player.land_speed >= HARD_LANDING:
+	if player.LandSpeed >= HARD_LANDING:
 		main.add_shake(1.0)
 
 
 func on_dashed(player: Node2D) -> void:
 	var dir := Vector2(Input.get_axis("left", "right"), Input.get_axis("up", "down"))
 	if dir == Vector2.ZERO:
-		dir = Vector2(player.facing, 0)
+		dir = Vector2(player.Facing, 0)
 	kick = dir.normalized() * KICK
 
 
@@ -106,7 +106,7 @@ func puff(pos: Vector2, dir: Vector2, amount: int, force := 1.0) -> void:
 	p.damping_max = 90
 	p.scale_amount_min = 1.0
 	p.scale_amount_max = 2.0
-	p.color_ramp = PlayerScript.fade_gradient(Color(0.8, 0.8, 0.8, 0.7))
+	p.color_ramp = Glow.fade_gradient(Color(0.8, 0.8, 0.8, 0.7))
 	_spawn(p, pos, 0.5)
 
 
@@ -114,13 +114,13 @@ func puff(pos: Vector2, dir: Vector2, amount: int, force := 1.0) -> void:
 
 # Le fantôme reste figé, plein blanc, le temps de l'arrêt sur image, puis éclate
 func on_died(player: Node2D) -> void:
-	player.visual.visible = true
-	player.visual.scale = Vector2(1.25, 1.25)
+	player.Visual.visible = true
+	player.Visual.scale = Vector2(1.25, 1.25)
 	flash.color.a = 0.25
 	# Le fondu du flash suit le temps du jeu : il attend la fin de l'arrêt
 	create_tween().tween_property(flash, "color:a", 0.0, 0.25)
 	await hitstop(HITSTOP)
-	player.visual.visible = false
+	player.Visual.visible = false
 	_spawn(Ring.new(), player.global_position, 0.5)
 
 
@@ -148,7 +148,7 @@ func on_respawned(pos: Vector2) -> void:
 	p.radial_accel_max = -200
 	p.scale_amount_min = 1.0
 	p.scale_amount_max = 2.0
-	p.color_ramp = PlayerScript.fade_gradient(Color(1, 1, 1, 0.8))
+	p.color_ramp = Glow.fade_gradient(Color(1, 1, 1, 0.8))
 	_spawn(p, pos, 0.5)
 
 

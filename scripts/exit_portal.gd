@@ -25,7 +25,7 @@ func _ready() -> void:
 	shape.position = Vector2(0, -length * 0.5)
 	add_child(shape)
 	light = PointLight2D.new()
-	light.texture = preload("res://scripts/player.gd").make_light_texture()
+	light.texture = preload("res://scripts/glow.gd").make_light_texture()
 	light.texture_scale = 1.0
 	light.energy = 0.8 if secret else 1.3
 	light.position = Vector2(0, -length * 0.5)

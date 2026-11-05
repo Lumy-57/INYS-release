@@ -59,7 +59,7 @@ func reset() -> void:
 
 func _physics_process(_delta: float) -> void:
 	# Pendant la carte de fin de niveau, tout s'arrête
-	if player.dead or not player.is_physics_processing():
+	if player.Dead or not player.is_physics_processing():
 		return
 	if anchor == Vector2.INF:
 		anchor = player.global_position
@@ -68,8 +68,8 @@ func _physics_process(_delta: float) -> void:
 		if player.global_position.distance_to(anchor) < 2.0:
 			return
 		awake = true
-		trail.append([anchor, player.facing])
-	trail.append([player.global_position, player.facing])
+		trail.append([anchor, player.Facing])
+	trail.append([player.global_position, player.Facing])
 	if companion:
 		_walk_along()
 		return
@@ -92,7 +92,7 @@ func _physics_process(_delta: float) -> void:
 		trail = trail.slice(i)
 		head -= i
 	if global_position.distance_to(player.global_position) < HIT:
-		player.die()
+		player.Die()
 
 
 # La compagne avance sur le chemin du fantôme, un pas par image (deux si elle traîne),

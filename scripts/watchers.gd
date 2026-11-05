@@ -55,7 +55,7 @@ func _physics_process(delta: float) -> void:
 			fans[i] = PackedVector2Array()
 			continue
 		fans[i] = _fan(space, pos, _range(i), exclude)
-		if player.dead or not player.is_physics_processing():
+		if player.Dead or not player.is_physics_processing():
 			continue
 		var to: Vector2 = player.global_position
 		if pos.distance_to(to) > _range(i):
@@ -64,14 +64,14 @@ func _physics_process(delta: float) -> void:
 		q.exclude = exclude
 		if space.intersect_ray(q).is_empty():
 			seen = true
-	if player.dead:
+	if player.Dead:
 		exposure = 0.0
 		return
 	if seen:
 		exposure += delta / EXPOSE_TIME
 		if exposure >= 1.0:
 			exposure = 0.0
-			player.die()
+			player.Die()
 	else:
 		exposure = maxf(exposure - delta * RECOVER / EXPOSE_TIME, 0.0)
 
@@ -108,7 +108,7 @@ func _draw() -> void:
 			draw_polyline(edge, Color(1, 1, 1, 0.18 * fade), 1.0)
 		_eye(pos, u)
 	# L'exposition : des cils qui se referment autour du fantôme
-	if exposure > 0.01 and not player.dead:
+	if exposure > 0.01 and not player.Dead:
 		var c := player.global_position
 		var r := lerpf(16.0, 8.0, exposure)
 		var n := 10
