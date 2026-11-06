@@ -88,6 +88,9 @@ public partial class Player : CharacterBody2D
 	public bool Ascent;  // mode Ascension (main.gd)
 	public bool Charging;
 	public float Charge;  // 0 à 1 pendant qu'on charge le saut
+	// Visée pendant la charge, de -1 (tout à gauche) à 1 (tout à droite) : le temps passé à tenir
+	// droite moins le temps passé à tenir gauche, rapporté au temps de charge complet
+	public float Aim;
 	// Hauteur de la dernière chute, en pixels (du plus haut point du saut jusqu'au sol)
 	public float LastDrop;
 	public float Splat;  // force de l'écrasement en cours, 0 à 1
@@ -118,6 +121,8 @@ public partial class Player : CharacterBody2D
 	public override void _Ready()
 	{
 		ghostVisualScript = GD.Load<GDScript>("res://scripts/ghost_visual.gd");
+		// Le trait de debug se voit même dans le noir (les enfants gardent leur propre éclairage)
+		Material = new CanvasItemMaterial { LightMode = CanvasItemMaterial.LightModeEnum.Unshaded };
 		settings = GetNodeOrNull("/root/Settings");
 		var glow = GD.Load<GDScript>("res://scripts/glow.gd");
 
@@ -327,19 +332,23 @@ public partial class Player : CharacterBody2D
 			{
 				Charging = true;
 				Charge = 0f;
+				Aim = 0f;
 			}
 			if (Charging)
 			{
 				Charge = Mathf.Min(1f, Charge + delta / AscentChargeTime);
+				// Gauche et droite se chargent aussi : plus on les tient, plus le saut part de côté
+				Aim = Mathf.Clamp(Aim + Mathf.Sign(ix) * delta / AscentChargeTime, -1f, 1f);
 				v.X = 0f;
-				if (ix != 0f)
-					Facing = Mathf.Sign(ix);
+				if (Aim != 0f)
+					Facing = Mathf.Sign(Aim);
 				Visual.Scale = new Vector2(1f + 0.3f * Charge, 1f - 0.35f * Charge);
 				if (!Input.IsActionPressed("jump") || Charge >= 1f)
 				{
 					Charging = false;
-					v = new Vector2(Mathf.Sign(ix) * AscentJumpX, Mathf.Lerp(AscentJumpMin, AscentJumpMax, Charge));
+					v = AscentJumpVelocity();
 					Charge = 0f;
+					Aim = 0f;
 					Carry = Vector2.Zero;
 					Visual.Scale = new Vector2(0.7f, 1.35f);
 					EmitSignal(SignalName.Jumped);
@@ -390,6 +399,31 @@ public partial class Player : CharacterBody2D
 		}
 		airTop = IsOnFloor() ? GlobalPosition.Y : Mathf.Min(airTop, GlobalPosition.Y);
 		AfterMove(fall);
+	}
+
+	// Vitesse de départ du saut chargé : la hauteur suit la charge, le côté suit la visée
+	public Vector2 AscentJumpVelocity() =>
+		new(Aim * AscentJumpX, Mathf.Lerp(AscentJumpMin, AscentJumpMax, Charge));
+
+	// Option de debug « Trajectoire du saut » : pendant la charge, un trait dans la direction du
+	// saut et des points sur la courbe qu'il suivrait (sans tenir compte des murs)
+	public override void _Draw()
+	{
+		if (!Ascent || !Charging || Dead || settings == null || !settings.Get("debug_aim").AsBool())
+			return;
+		var v = AscentJumpVelocity();
+		var col = new Color(1f, 0.85f, 0.3f, 0.9f);
+		DrawLine(Vector2.Zero, v.Normalized() * (12f + 28f * Charge), col, 1.5f);
+		var p = Vector2.Zero;
+		for (int i = 0; i < 40; i++)
+		{
+			for (int k = 0; k < 3; k++)
+			{
+				v.Y = Mathf.MoveToward(v.Y, AscentMaxFall, Gravity / 60f);
+				p += v / 60f;
+			}
+			DrawCircle(p, 1f, new Color(col, 0.7f * (1f - i / 40f)));
+		}
 	}
 
 	// Appelé par un courant d'air (updraft.gd) à chaque image où le fantôme est dedans
@@ -606,6 +640,8 @@ public partial class Player : CharacterBody2D
 	{
 		float delta = (float)deltaD;
 		Visual.Scale = Visual.Scale.Lerp(Vector2.One, 1f - Mathf.Exp(-14f * delta));
+		if (Ascent)
+			QueueRedraw();
 		// Sur une pente, la boîte du fantôme ne touche que par un coin : on descend le dessin
 		// d'autant pour qu'il pose bien sur le biais
 		float sink = 0f;
@@ -694,6 +730,7 @@ public partial class Player : CharacterBody2D
 		Jumping = false;
 		Charging = false;
 		Charge = 0f;
+		Aim = 0f;
 		LastDrop = 0f;
 		Splat = 0f;
 		splatTimer = 0f;

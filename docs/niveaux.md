@@ -242,8 +242,9 @@ La physique y est différente (`scripts/physique/Player.cs`, `AscentProcess`) :
 
 - **pas de dash ni de wall jump** ;
 - au sol, on marche lentement ; **maintenir saut charge le saut** (le fantôme se tasse). Au
-  relâcher, ou à pleine charge (1 s), il part dans la direction tenue à ce moment-là : tout
-  droit sans direction, en avant sinon. Plus la charge est longue, plus il saute haut (jusqu'à
+  relâcher, ou à pleine charge (1 s), il part. **Gauche et droite se chargent aussi** : pendant
+  la charge, le temps passé à tenir droite (moins celui passé à tenir gauche) fixe l'élan de
+  côté ; sans rien tenir, il saute tout droit. Plus la charge est longue, plus il saute haut (jusqu'à
   environ 8 cases) ;
 - **en l'air, plus aucun contrôle** ;
 - **un mur renvoie le fantôme** dans l'autre sens, en gardant presque tout son élan ; un plafond le
@@ -253,6 +254,9 @@ La physique y est différente (`scripts/physique/Player.cs`, `AscentProcess`) :
   plus la chute est haute, plus il s'aplatit et plus il met de temps à se relever (jusqu'à
   0,9 s, sans pouvoir bouger), avec de la poussière qui gicle (constantes `Splat…`). Une chute de plus de 6 cases secoue l'écran et compte comme
   une « chute » (affichée avec le temps).
+
+L'option **Debug · trajectoire du saut** (Options) montre pendant la charge un trait dans la
+direction du saut et la courbe qu'il suivrait, sans tenir compte des murs.
 
 Les réglages (hauteur, portée, temps de charge, rebond) sont les constantes `Ascent…` en haut de
 `Player.cs`. Repère pour dessiner : à pleine charge, le fantôme monte de 5 cases en avançant
