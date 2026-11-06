@@ -242,17 +242,18 @@ La physique y est différente (`scripts/physique/Player.cs`, `AscentProcess`) :
 
 - **pas de dash ni de wall jump** ;
 - au sol, on marche lentement ; **maintenir saut charge le saut** (le fantôme se tasse). Au
-  relâcher, ou à pleine charge (0,6 s), il part dans la direction tenue à ce moment-là : tout
+  relâcher, ou à pleine charge (1 s), il part dans la direction tenue à ce moment-là : tout
   droit sans direction, en avant sinon. Plus la charge est longue, plus il saute haut (jusqu'à
-  environ 5 cases) ;
+  environ 8 cases) ;
 - **en l'air, plus aucun contrôle** ;
-- **un mur renvoie le fantôme** dans l'autre sens, avec un peu moins d'élan ; un plafond le
+- **un mur renvoie le fantôme** dans l'autre sens, en gardant presque tout son élan ; un plafond le
   fait retomber ;
 - tomber ne tue pas : on retombe plus bas et il faut tout remonter. Les niveaux doivent donc
   avoir un **sol tout en bas**. Une chute de plus de 6 cases secoue l'écran et compte comme
   une « chute » (affichée avec le temps).
 
 Les réglages (hauteur, portée, temps de charge, rebond) sont les constantes `Ascent…` en haut de
-`Player.cs`. Repère pour dessiner : à pleine charge, le fantôme monte de 3 cases en avançant
-d'environ 5 cases, ou de 5 cases en avançant d'environ 4. Les pics marchent encore, mais une mort
+`Player.cs`. Repère pour dessiner : à pleine charge, le fantôme monte de 5 cases en avançant
+d'environ 8 cases ; il part toujours vite de côté, donc deux marches proches et hautes se
+ratent facilement. Les pics marchent encore, mais une mort
 ramène au départ `P` : à utiliser avec parcimonie.

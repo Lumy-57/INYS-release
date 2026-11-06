@@ -52,12 +52,12 @@ public partial class Player : CharacterBody2D
 	// Mode Ascension : pas de dash ni de wall jump, on charge son saut au sol et on ne dirige plus
 	// rien en l'air ; un mur renvoie le fantôme au lieu de l'arrêter
 	public const float AscentWalk = 60f;
-	public const float AscentChargeTime = 0.6f;
+	public const float AscentChargeTime = 1.0f;
 	public const float AscentJumpMin = -150f;
-	public const float AscentJumpMax = -400f;
-	public const float AscentJumpX = 120f;
+	public const float AscentJumpMax = -520f;
+	public const float AscentJumpX = 150f;
 	public const float AscentMaxFall = 400f;
-	public const float AscentBounce = 0.55f;
+	public const float AscentBounce = 0.85f;
 
 	// Taille de la boîte du fantôme, en pixels
 	public static readonly Vector2 BoxSize = new(10, 14);
@@ -341,7 +341,7 @@ public partial class Player : CharacterBody2D
 		float fall = Velocity.Y;
 		float pushX = Velocity.X;
 		MoveAndSlide();
-		// Rebond : le mur renvoie le fantôme, avec un peu moins d'élan
+		// Rebond : le mur renvoie le fantôme, en gardant presque tout son élan
 		if (!IsOnFloor() && pushX != 0f)
 		{
 			for (int i = 0; i < GetSlideCollisionCount(); i++)
