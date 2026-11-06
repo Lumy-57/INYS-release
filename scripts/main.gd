@@ -186,6 +186,8 @@ func _ready() -> void:
 		if ascent and player.LastDrop > BIG_FALL:
 			falls += 1
 			add_shake(minf(6.0, 2.0 + player.LastDrop / 64.0))
+			# La poussière gicle de chaque côté, plus fort quand la chute est haute
+			_burst(player.global_position + Vector2(0, 7), int(10 + 30 * player.Splat), 0.35 + 0.35 * player.Splat)
 			Settings.rumble(0.5, 0.3, 0.15)
 			sfx.play("death", 0.1))
 	player.connect("Bonked", func():

@@ -58,6 +58,12 @@ public partial class Player : CharacterBody2D
 	public const float AscentJumpX = 150f;
 	public const float AscentMaxFall = 400f;
 	public const float AscentBounce = 0.85f;
+	// Écrasement à l'atterrissage : à partir de 2 cases de chute, à fond vers 22 cases ; le fantôme
+	// reste aplati (et immobile) d'autant plus longtemps que la chute était haute
+	public const float SplatFrom = 32f;
+	public const float SplatFull = 352f;
+	public const float SplatHoldMin = 0.12f;
+	public const float SplatHoldMax = 0.9f;
 
 	// Taille de la boîte du fantôme, en pixels
 	public static readonly Vector2 BoxSize = new(10, 14);
@@ -84,6 +90,9 @@ public partial class Player : CharacterBody2D
 	public float Charge;  // 0 à 1 pendant qu'on charge le saut
 	// Hauteur de la dernière chute, en pixels (du plus haut point du saut jusqu'au sol)
 	public float LastDrop;
+	public float Splat;  // force de l'écrasement en cours, 0 à 1
+	float splatTimer;
+	float splatHold;
 	float airTop;
 	// Plateforme mobile sous le fantôme (Mover.cs), sinon null
 	public Mover FloorBody;
@@ -300,7 +309,18 @@ public partial class Player : CharacterBody2D
 		float ix = AxisX();
 		bool onFloor = IsOnFloor();
 		Vector2 v = Velocity;
-		if (onFloor)
+		if (splatTimer > 0f)
+		{
+			// Aplati au sol : on ne bouge plus, on ne charge plus, le temps de se relever
+			splatTimer -= delta;
+			ix = 0f;
+			Charging = false;
+		}
+		if (onFloor && splatTimer > 0f)
+		{
+			v.X = 0f;
+		}
+		else if (onFloor)
 		{
 			Dashes = MaxDashes;
 			if (!Charging && Input.IsActionJustPressed("jump"))
@@ -361,6 +381,12 @@ public partial class Player : CharacterBody2D
 		{
 			LastDrop = GlobalPosition.Y - airTop;
 			Velocity = new Vector2(OnIce() ? Velocity.X : 0f, Velocity.Y);
+			if (LastDrop > SplatFrom)
+			{
+				Splat = Mathf.Clamp((LastDrop - SplatFrom) / (SplatFull - SplatFrom), 0.15f, 1f);
+				splatHold = Mathf.Lerp(SplatHoldMin, SplatHoldMax, Splat);
+				splatTimer = splatHold;
+			}
 		}
 		airTop = IsOnFloor() ? GlobalPosition.Y : Mathf.Min(airTop, GlobalPosition.Y);
 		AfterMove(fall);
@@ -590,7 +616,27 @@ public partial class Player : CharacterBody2D
 				sink = 5f * Mathf.Abs(n.X / n.Y);
 		}
 		var pos = Visual.Position;
-		pos.Y = Mathf.Lerp(pos.Y, -1f + sink, 1f - Mathf.Exp(-25f * delta));
+		if (splatTimer > 0f && !Dead)
+		{
+			// Écrasé au sol : très large et très plat, collé au sol, avec un frisson au début ;
+			// il ne se regonfle que dans le dernier tiers de l'immobilité
+			float left = splatTimer / splatHold;
+			float a = Splat * Mathf.Min(1f, left * 3f);
+			float wobble = Mathf.Sin((1f - left) * 40f) * 0.06f * Splat * left;
+			var squash = new Vector2(1f + 1.1f * a + wobble, Mathf.Max(0.15f, 1f - 0.8f * a - wobble));
+			Visual.Scale = squash;
+			pos.Y = -1f + sink + 7f * (1f - squash.Y);
+		}
+		else
+		{
+			if (Splat > 0f)
+			{
+				// Il se relève d'un coup, un peu étiré
+				Visual.Scale = new Vector2(0.8f, 1.25f);
+				Splat = 0f;
+			}
+			pos.Y = Mathf.Lerp(pos.Y, -1f + sink, 1f - Mathf.Exp(-25f * delta));
+		}
 		Visual.Position = pos;
 		Visual.Set("facing", Facing);
 		Visual.Set("gaze", Velocity / 180f);
@@ -649,6 +695,8 @@ public partial class Player : CharacterBody2D
 		Charging = false;
 		Charge = 0f;
 		LastDrop = 0f;
+		Splat = 0f;
+		splatTimer = 0f;
 		airTop = pos.Y;
 		Visual.Visible = true;
 		Visual.Scale = new Vector2(0.6f, 1.4f);

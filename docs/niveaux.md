@@ -249,7 +249,9 @@ La physique y est différente (`scripts/physique/Player.cs`, `AscentProcess`) :
 - **un mur renvoie le fantôme** dans l'autre sens, en gardant presque tout son élan ; un plafond le
   fait retomber ;
 - tomber ne tue pas : on retombe plus bas et il faut tout remonter. Les niveaux doivent donc
-  avoir un **sol tout en bas**. Une chute de plus de 6 cases secoue l'écran et compte comme
+  avoir un **sol tout en bas**. À l'atterrissage, le fantôme **s'écrase au sol** dès 2 cases de chute :
+  plus la chute est haute, plus il s'aplatit et plus il met de temps à se relever (jusqu'à
+  0,9 s, sans pouvoir bouger), avec de la poussière qui gicle (constantes `Splat…`). Une chute de plus de 6 cases secoue l'écran et compte comme
   une « chute » (affichée avec le temps).
 
 Les réglages (hauteur, portée, temps de charge, rebond) sont les constantes `Ascent…` en haut de
