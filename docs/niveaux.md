@@ -67,11 +67,14 @@ règles n'ont pas changé :
 ### Les murs taillés : roche, pierre taillée, givre
 
 Pour casser l'effet « cubes », trois murs de plus, toujours en gris et blanc. Ils sont solides
-et font de l'ombre exactement comme le mur `#` ; seul leur dessin change :
+et font de l'ombre exactement comme le mur `#` ; seul leur dessin change (sauf le givre, qui glisse) :
 
 - **Roche `r`** : coins saillants arrondis, quelques grains et fêlures ;
 - **Pierre taillée `t`** : coins biseautés, joints de briques décalés ;
 - **Givre `g`** : coins arrondis, une couche de neige qui coule en gouttes sur le dessus.
+  Lui seul change aussi le jeu : **on glisse dessus**. Le fantôme y démarre et y freine
+  beaucoup moins vite (il garde son élan), comme sur de la glace. Les murs et plafonds de
+  givre, eux, se comportent comme les autres.
 
 Ils sont dans le deuxième atlas de la palette (`murs.png`, à côté de la palette habituelle).
 Le plus simple est de les peindre avec les terrains, pour que Godot choisisse tout seul les
@@ -133,6 +136,8 @@ jaune sur « Niveau ».
 | **Pierre fissurée** (`pierre_fissuree.tscn`) | `X` | **Size** ; **Tremble** : secondes avant la chute (0,45) ; **Retour** : secondes avant qu'elle revienne (2). |
 | **Sortie** (`sortie.tscn`) | `E` | **Orientation** : Debout (comme la tuile `E`, posée sur le sol dans la case juste au-dessus, on y entre par le côté) ou Couchée (à l'horizontale, on y entre par en haut ou par en bas : posée dans un trou du plafond, c'est une sortie vers le haut) ; **Largeur** de la sortie couchée, en cases depuis la case du nœud vers la droite (2). La tuile `E` reste valable. |
 | **Ressort** (`ressort.tscn`) | `S` | **Force** : vitesse de la propulsion (430). Posé dans la case juste au-dessus du sol ; l'aperçu montre à peu près la hauteur atteinte. |
+| **Clé** (`cle.tscn`) | | **Numero** (1 à 4) : elle ouvre les portes du même numéro. Le fantôme la ramasse en passant, elle le suit, et ouvre la première porte de son numéro qu'il touche (posé dessus, contre elle ou dessous). S'il meurt avant, elle retourne à sa place. Une clé n'ouvre qu'une porte. |
+| **Porte** (`porte.tscn`) | | **Size** (1 × 3) ; **Numero** (1 à 4). Un bloc plein qui s'efface quand une clé du même numéro la touche, et reste ouvert jusqu'à la fin du niveau, même après une mort. Le numéro est dessiné en petits points sur la clé et sur la porte. |
 | **Plateforme mobile** (`plateforme.tscn`) | `M` `W` `-` | **Size** ; **Course** : le bout B en cases depuis le bout A (là où est le nœud) : (6, 0) = 6 cases à droite, (0, -4) = 4 cases plus haut, (4, -4) = en diagonale ; **Pause** à chaque bout (0,4 s) ; **Depart** : où elle est au lancement, de 0 (en A) à 1 (en B) ; **Declenchement** : Toujours (aller-retour sans fin), Fantôme dessus (attend en A que le fantôme monte, va en B puis revient seule) ou Fantôme dessus aux deux bouts ; groupe **Aller (A → B)** : **Vitesse** moyenne en px/s (60) et **Acceleration** (Constante, Douce au départ et à l'arrivée, Douce au départ, Douce à l'arrivée) ; groupe **Retour (B → A)** : **Meme Retour** (coché = mêmes réglages qu'à l'aller), sinon **Vitesse Retour** et **Acceleration Retour**. Le rail est dessiné tout seul. |
 | **Bloc de carillon** (`bloc_carillon.tscn`) | `a` `b` | **Size** ; **Etat** : solide au repos, ou solide une fois sonné. Les cloches restent des tuiles `B`. |
 | **Bloc rythmé** (`bloc_rythme.tscn`) | `1` `2` | **Size** ; **Temps** : solide pendant la première ou la seconde moitié du cycle. Le cycle (2,4 s) est commun au niveau, la musique le suit. |

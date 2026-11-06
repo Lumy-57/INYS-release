@@ -169,7 +169,7 @@ toujours le fantôme. Touches gardées dans `user://save/controls.cfg`.
 - **Statistiques** (écran titre) : temps de jeu, morts, sauts, dashs, niveaux et parties
   finis, meilleure partie, étincelles, et le record de chaque niveau. Cumulées sur toutes
   les parties dans `user://save/stats.cfg`.
-- **Options** (menu pause ou écran titre) : volume des effets et de la musique, tremblement d'écran,
+- **Options** (menu pause ou écran titre) : volume des effets et de la musique, tremblement d'écran, vibrations de la manette (dash, mort, ressort, porte ouverte),
   plein écran, chrono. **Assistance** façon Celeste : vitesse du jeu (50 à 100 %),
   dash infini, invincibilité. Une partie assistée n'enregistre pas de record.
   Réglages gardés dans `user://settings.cfg`.

@@ -41,6 +41,7 @@ func _items() -> Array:
 		["Effets sonores", "sfx_volume", "level"],
 		["Musique", "music_volume", "level"],
 		["Tremblement d'écran", "shake", "bool"],
+		["Vibrations manette", "vibration", "bool"],
 		["Plein écran", "fullscreen", "bool"],
 		["Chrono affiché", "show_timer", "bool"],
 		["Apparence", "look", "look"],
@@ -90,7 +91,7 @@ func _draw() -> void:
 	var text := "OPTIONS\n"
 	for i in items.size():
 		var it: Array = items[i]
-		if i == 6:
+		if it[1] == "game_speed":
 			text += "\n— Assistance —\n"
 		var line: String = it[0]
 		if it[2] == "reset":

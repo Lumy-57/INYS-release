@@ -8,6 +8,7 @@ var PATH := SaveDir.path("settings.cfg")
 var sfx_volume := 8  # sur 10
 var music_volume := 6
 var shake := true
+var vibration := true  # vibrations de la manette
 var fullscreen := false
 var show_timer := true
 var look := "none"  # apparence du fantôme (looks.gd)
@@ -32,7 +33,7 @@ func _ready() -> void:
 
 
 func _keys() -> Array:
-	return ["sfx_volume", "music_volume", "shake", "fullscreen", "show_timer", "look", "game_speed", "infinite_dash", "invincible"]
+	return ["sfx_volume", "music_volume", "shake", "vibration", "fullscreen", "show_timer", "look", "game_speed", "infinite_dash", "invincible"]
 
 
 func assisted() -> bool:
@@ -64,3 +65,12 @@ func _set_volume(bus: String, level: int) -> void:
 	var i := AudioServer.get_bus_index(bus)
 	AudioServer.set_bus_mute(i, level <= 0)
 	AudioServer.set_bus_volume_db(i, linear_to_db(level / 10.0))
+
+
+# Fait vibrer toutes les manettes branchées, si l'option est cochée. weak et strong vont de 0 à 1
+# (petit et gros moteur), duration en secondes.
+func rumble(weak: float, strong: float, duration: float) -> void:
+	if not vibration:
+		return
+	for pad in Input.get_connected_joypads():
+		Input.start_joy_vibration(pad, weak, strong, duration)

@@ -76,6 +76,7 @@ Ta progression, tes records et tes réglages sont sauvegardés automatiquement.
 | Pause | Échap, P, Entrée | Start |
 
 Toutes les touches se changent dans **Options > Touches**, au clavier comme à la manette.
+La manette vibre au dash, à la mort et sur les ressorts ; **Options > Vibrations manette** les coupe.
 
 ## Quelques conseils
 
