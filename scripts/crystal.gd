@@ -17,7 +17,7 @@ func _ready() -> void:
 	shape.shape = circle
 	add_child(shape)
 	light = PointLight2D.new()
-	light.texture = preload("res://scripts/player.gd").make_light_texture()
+	light.texture = preload("res://scripts/glow.gd").make_light_texture()
 	light.texture_scale = 0.45
 	light.energy = 1.1
 	add_child(light)

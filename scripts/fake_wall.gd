@@ -78,7 +78,7 @@ func is_found(cell: Vector2i) -> bool:
 
 func _physics_process(_delta: float) -> void:
 	for ghost in ghosts:
-		if not ghost.dead:
+		if not ghost.Dead:
 			_reveal_around(Rect2(ghost.global_position - Vector2(5, 7), Vector2(10, 14)))
 
 
@@ -105,7 +105,7 @@ func _process(delta: float) -> void:
 		if not is_found(secrets[k]):
 			var center := Vector2(secrets[k]) * TILE + Vector2(TILE, TILE) * 0.5
 			for ghost in ghosts:
-				if not ghost.dead:
+				if not ghost.Dead:
 					var d: float = ghost.global_position.distance_to(center)
 					target = maxf(target, clampf(1.0 - (d - BEAM_NEAR) / (BEAM_FAR - BEAM_NEAR), 0.0, 1.0))
 		beams[k] = move_toward(beams[k], target, delta * 1.5)

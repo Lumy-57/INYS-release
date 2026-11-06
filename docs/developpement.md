@@ -7,9 +7,25 @@ entièrement noir et blanc : le fantôme est la source de lumière, les murs n'e
 que par leur liseré éclairé, et tout le reste se perd dans l'ombre.
 
 ## Lancer le jeu
-1. Installer Godot 4.7 ou plus récent (version standard, pas besoin de .NET).
+1. Installer **Godot 4.7 version .NET** (le téléchargement « .NET » sur godotengine.org) et le
+   **SDK .NET 8** (dotnet.microsoft.com). La physique du fantôme et des blocs est écrite en C#.
 2. Godot > Importer > choisir `project.godot` à la racine du dépôt.
-3. F5 pour jouer.
+3. Au premier lancement, cliquer **Compiler** (le marteau en haut à droite), puis F5 pour jouer.
+   Godot recompile le C# tout seul à chaque lancement après une modification.
+
+En ligne de commande, `dotnet build` à la racine compile aussi le C# (utile pour voir les erreurs
+sans ouvrir l'éditeur). Les exports Windows, Linux et macOS embarquent le C# ; l'export Web n'est
+pas possible avec la version .NET de Godot.
+
+## Langages
+- **C#** (`scripts/physique/`, projet `Lumignon.csproj`) : tout ce qui touche à la physique du
+  fantôme et des blocs.
+- **GDScript** : tout le reste (menus, niveaux, éléments de l'éditeur, effets, musique…).
+
+Le GDScript parle au C# par les noms C# : `player.Dead`, `player.Die()`, `player.Died.connect(…)`,
+`chimes.Ring()`… (les noms en PascalCase du fichier .cs). Le C# appelle le GDScript par
+`Call("nom")`, `Get("nom")` et `Set("nom", valeur)` (par exemple le dessin du fantôme,
+`ghost_visual.gd`, ou les textures de `glow.gd`).
 
 ## L'histoire
 Le jeu s'appelle **Lumignon** : le bout de mèche qui brûle encore quand la bougie est presque finie.
@@ -153,7 +169,7 @@ toujours le fantôme. Touches gardées dans `user://save/controls.cfg`.
 - **Statistiques** (écran titre) : temps de jeu, morts, sauts, dashs, niveaux et parties
   finis, meilleure partie, étincelles, et le record de chaque niveau. Cumulées sur toutes
   les parties dans `user://save/stats.cfg`.
-- **Options** (menu pause ou écran titre) : volume des effets et de la musique, tremblement d'écran,
+- **Options** (menu pause ou écran titre) : volume des effets et de la musique, tremblement d'écran, vibrations de la manette (dash, mort, ressort, porte ouverte),
   plein écran, chrono. **Assistance** façon Celeste : vitesse du jeu (50 à 100 %),
   dash infini, invincibilité. Une partie assistée n'enregistre pas de record.
   Réglages gardés dans `user://settings.cfg`.
@@ -261,16 +277,17 @@ Les sauvegardes sont rangées par numéro de niveau ; `save_data.gd` garde la li
 - `levels/` : les scènes des niveaux, leur palette de tuiles et leur ordre (`list.tres`) ; `levels/level.gd` relit une scène en carte.
 - `scripts/level_data.gd` : charge les niveaux dans l'ordre de `levels/list.tres`.
 - `scripts/main.gd` : construit les niveaux, caméra, morts, checkpoints, transitions, HUD.
-- `scripts/player.gd` : physique du fantôme (toutes les constantes en haut du fichier).
-- `scripts/phase_blocks.gd` : blocs de lumière et d'ombre.
-- `scripts/crumble_block.gd`, `scripts/updraft.gd` : pierres fissurées et courants d'air.
-- `scripts/spring.gd`, `scripts/mover.gd`, `scripts/rail.gd` : ressorts, plateformes mobiles et rails.
+- `scripts/physique/Player.cs` : physique du fantôme (toutes les constantes en haut du fichier).
+- `scripts/physique/PhaseBlocks.cs` : blocs de lumière et d'ombre.
+- `scripts/physique/CrumbleBlock.cs`, `scripts/updraft.gd` : pierres fissurées et courants d'air.
+- `scripts/spring.gd`, `scripts/physique/Mover.cs`, `scripts/rail.gd` : ressorts, plateformes mobiles et rails.
+- `scripts/physique/Blocks.cs` : outils communs aux blocs qui apparaissent et disparaissent.
 - `levels/elements/` : les éléments réglables posés dans les scènes de niveau (`element.gd` = leur base) ; `main._add_elements` les construit.
-- `scripts/bell.gd`, `scripts/toggle_blocks.gd` : cloches et blocs de carillon.
-- `scripts/timed_blocks.gd` : blocs rythmés.
+- `scripts/bell.gd`, `scripts/physique/ToggleBlocks.cs` : cloches et blocs de carillon.
+- `scripts/physique/TimedBlocks.cs` : blocs rythmés (la musique reprend sa période dans `music.gd`).
 - `scripts/shadow_chaser.gd`, `scripts/rising_dark.gd` : ombre poursuivante et marée de ténèbres.
 - `scripts/watchers.gd` : yeux et regards. `scripts/mirror.gd` : vitres du chapitre Miroir.
-- `scripts/hint_orb.gd` : la petite orbe qui dit les indices. `scripts/orb_blocks.gd` : pierres cachées du chapitre Compagnie.
+- `scripts/hint_orb.gd` : la petite orbe qui dit les indices. `scripts/physique/OrbBlocks.cs` : pierres cachées du chapitre Compagnie.
 - `scripts/sfx.gd` : sons synthétisés au lancement (aucun fichier audio).
 - `scripts/fx.gd` : poussière, mort, poussée de caméra, iris de transition.
 - `scripts/settings.gd` (autoload `Settings`) : réglages et assistance. `scripts/options.gd` : écran d'options.
@@ -282,4 +299,5 @@ Les sauvegardes sont rangées par numéro de niveau ; `save_data.gd` garde la li
   Un nouveau chapitre a besoin d'un cas dans `_scene()`, sinon il reprend la vignette du Seuil.
 - `scripts/music.gd` : musique d'ambiance, `scripts/music_themes.gd` : un thème par chapitre. `scripts/spark.gd` : étincelles.
 - `scripts/save_data.gd` : meilleurs temps et étincelles trouvées. `scripts/end_screen.gd` : écran de fin.
+- `scripts/glow.gd` : halo des lumières et fondu des particules.
 - `scripts/ghost_visual.gd`, `tiles_drawer.gd`, `crystal.gd`, `checkpoint.gd`, `exit_portal.gd` : rendu et éléments.

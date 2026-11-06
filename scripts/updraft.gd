@@ -34,16 +34,15 @@ func _ready() -> void:
 	wisps.initial_velocity_max = 100 * force
 	wisps.scale_amount_min = 1
 	wisps.scale_amount_max = 2
-	wisps.color_ramp = preload("res://scripts/player.gd").fade_gradient(Color(1, 1, 1, 0.6))
+	wisps.color_ramp = preload("res://scripts/glow.gd").fade_gradient(Color(1, 1, 1, 0.6))
 	wisps.preprocess = wisps.lifetime
 	add_child(wisps)
 
 
 func _physics_process(_delta: float) -> void:
-	var body_rect := Rect2(player.global_position - Vector2(5, 7), Vector2(10, 14))
-	if not player.dead and rect.intersects(body_rect):
-		player.wind_frames[dir] = Engine.get_physics_frames()
-		player.wind_power[dir] = force
+	var body_rect: Rect2 = player.BodyRect()
+	if not player.Dead and rect.intersects(body_rect):
+		player.FeelWind(dir, force)
 
 
 func _draw() -> void:

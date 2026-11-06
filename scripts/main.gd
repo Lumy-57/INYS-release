@@ -5,21 +5,24 @@ extends Node2D
 const TILE := 16
 const VIEW_HALF := Vector2(240, 135)  # demi-écran, en px du monde
 const LevelData = preload("res://scripts/level_data.gd")
-const PlayerScript = preload("res://scripts/player.gd")
+const PlayerScript = preload("res://scripts/physique/Player.cs")
+const Glow = preload("res://scripts/glow.gd")
 const TilesDrawer = preload("res://scripts/tiles_drawer.gd")
 const Crystal = preload("res://scripts/crystal.gd")
 const Checkpoint = preload("res://scripts/checkpoint.gd")
 const ExitPortal = preload("res://scripts/exit_portal.gd")
-const PhaseBlocks = preload("res://scripts/phase_blocks.gd")
-const CrumbleBlock = preload("res://scripts/crumble_block.gd")
+const PhaseBlocks = preload("res://scripts/physique/PhaseBlocks.cs")
+const CrumbleBlock = preload("res://scripts/physique/CrumbleBlock.cs")
+const Door = preload("res://scripts/physique/Door.cs")
+const KeyItem = preload("res://scripts/key.gd")
 const Updraft = preload("res://scripts/updraft.gd")
 const ZeroGravity = preload("res://scripts/zero_gravity.gd")
 const Spring = preload("res://scripts/spring.gd")
-const Mover = preload("res://scripts/mover.gd")
+const Mover = preload("res://scripts/physique/Mover.cs")
 const Rail = preload("res://scripts/rail.gd")
 const Bell = preload("res://scripts/bell.gd")
-const ToggleBlocks = preload("res://scripts/toggle_blocks.gd")
-const TimedBlocks = preload("res://scripts/timed_blocks.gd")
+const ToggleBlocks = preload("res://scripts/physique/ToggleBlocks.cs")
+const TimedBlocks = preload("res://scripts/physique/TimedBlocks.cs")
 const ShadowChaser = preload("res://scripts/shadow_chaser.gd")
 const RisingDark = preload("res://scripts/rising_dark.gd")
 const Watchers = preload("res://scripts/watchers.gd")
@@ -42,7 +45,7 @@ const JournalScreen = preload("res://scripts/journal_screen.gd")
 const ChapterSelect = preload("res://scripts/chapter_select.gd")
 const Lore = preload("res://scripts/lore.gd")
 const HintOrb = preload("res://scripts/hint_orb.gd")
-const OrbBlocks = preload("res://scripts/orb_blocks.gd")
+const OrbBlocks = preload("res://scripts/physique/OrbBlocks.cs")
 const FakeWall = preload("res://scripts/fake_wall.gd")
 const Palette = preload("res://scripts/palette.gd")
 const Slopes = preload("res://scripts/slopes.gd")
@@ -67,6 +70,7 @@ var respawn_point := Vector2.ZERO
 var room_size := Vector2.ZERO
 var crystals: Array = []
 var crumbles: Array = []
+var keys: Array = []  # clés du niveau (key.gd) : elles reviennent à leur place après une mort
 var checkpoints: Array = []
 var chimes: Node2D  # blocs de carillon du niveau, s'il y en a
 var chasers: Array = []  # ombres poursuivantes, s'il y en a
@@ -155,21 +159,22 @@ func _ready() -> void:
 	player = PlayerScript.new()
 	player.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(player)
-	player.died.connect(_on_player_died)
+	player.connect("Died", _on_player_died)
 	hint_orb = HintOrb.new()
 	hint_orb.process_mode = Node.PROCESS_MODE_PAUSABLE
 	hint_orb.player = player
 	hint_orb.main = self
 	add_child(hint_orb)
-	player.dashed.connect(func():
+	player.connect("Dashed", func():
 		add_shake(2.0)
 		fx.on_dashed(player)
-		hint_orb.dash_ahead(player.dash_dir)
+		hint_orb.dash_ahead(player.DashDir)
+		Settings.rumble(0.35, 0.0, 0.08)
 		sfx.play("dash"))
-	player.jumped.connect(func():
+	player.connect("Jumped", func():
 		fx.on_jumped(player)
 		sfx.play("jump", 0.1))
-	player.landed.connect(func():
+	player.connect("Landed", func():
 		fx.on_landed(player)
 		sfx.play("land", 0.15))
 
@@ -321,6 +326,7 @@ func _load_level(index: int) -> void:
 	level_root = Node2D.new()
 	world.add_child(level_root)
 	crumbles.clear()
+	keys.clear()
 	chimes = null
 	chasers.clear()
 	dark = null
@@ -381,20 +387,31 @@ func _load_level(index: int) -> void:
 	var body := StaticBody2D.new()
 	level_root.add_child(body)
 
-	# Collision : rectangles fusionnés
+	# Le givre glisse : ses cases ont leur propre corps, dans le groupe « ice », que le fantôme
+	# reconnaît sous ses pieds (Player.cs)
+	var ice_body := StaticBody2D.new()
+	ice_body.add_to_group("ice")
+	level_root.add_child(ice_body)
+	var is_ice := func(x: int, y: int) -> bool:
+		return x >= 0 and x < w and y >= 0 and y < h and "g" in grid[y][x]
+
+	# Collision : rectangles fusionnés, le givre à part
 	var used := {}
 	for y in h:
 		for x in w:
 			if not is_solid.call(x, y) or used.has(Vector2i(x, y)):
 				continue
+			var ice: bool = is_ice.call(x, y)
+			var same := func(cx: int, cy: int) -> bool:
+				return is_solid.call(cx, cy) and is_ice.call(cx, cy) == ice and not used.has(Vector2i(cx, cy))
 			var rw := 1
-			while x + rw < w and is_solid.call(x + rw, y) and not used.has(Vector2i(x + rw, y)):
+			while x + rw < w and same.call(x + rw, y):
 				rw += 1
 			var rh := 1
 			var can_grow := true
 			while can_grow and y + rh < h:
 				for i in rw:
-					if not is_solid.call(x + i, y + rh) or used.has(Vector2i(x + i, y + rh)):
+					if not same.call(x + i, y + rh):
 						can_grow = false
 						break
 				if can_grow:
@@ -407,7 +424,7 @@ func _load_level(index: int) -> void:
 			rect.size = Vector2(rw, rh) * TILE
 			cs.shape = rect
 			cs.position = Vector2(x, y) * TILE + rect.size * 0.5
-			body.add_child(cs)
+			(ice_body if ice else body).add_child(cs)
 
 	# Rendu, ombres et entités
 	var occluders := Node2D.new()
@@ -522,9 +539,9 @@ func _load_level(index: int) -> void:
 	hint_orb.set_scout(not hidden_cells.is_empty())
 	if not hidden_cells.is_empty():
 		orb_blocks = OrbBlocks.new()
-		orb_blocks.cells = hidden_cells
-		orb_blocks.player = player
-		orb_blocks.orb = hint_orb
+		orb_blocks.Cells = hidden_cells
+		orb_blocks.Player = player
+		orb_blocks.Orb = hint_orb
 		level_root.add_child(orb_blocks)
 
 	# Les indices ne sont plus écrits sur les murs : l'orbe les dit quand on approche
@@ -538,7 +555,7 @@ func _load_level(index: int) -> void:
 	backdrop.setup(data.get("chapter", ""), room_size, colors)
 	# Épilogue : le noir s'adoucit, la lueur du fantôme se réchauffe, la musique se calme
 	ambient.color = Palette.ambient(colors)
-	player.light.color = Palette.light(colors)
+	player.Light.color = Palette.light(colors)
 	# Chaque chapitre a son thème ; l'énergie monte au fil du jeu et au fil du chapitre
 	music.set_chapter(data.get("chapter", ""))
 	var in_chapter := _chapter_progress(index)
@@ -555,7 +572,7 @@ func _load_level(index: int) -> void:
 	camera.limit_top = 0
 	camera.limit_right = int(room_size.x)
 	camera.limit_bottom = int(room_size.y)
-	player.respawn(respawn_point)
+	player.Respawn(respawn_point)
 	camera.reset_smoothing()
 	hint_orb.set_hints(hints)
 	if not on_title and not LevelData.is_bside(index):
@@ -587,6 +604,8 @@ func _add_elements(elements: Array, bell_cells: Array) -> Node2D:
 	var timed_runs := [[], []]
 	var eyes := []
 	var rails := []
+	var doors := []
+	var key_cells := []
 	for e in elements:
 		var base := Vector2(e["cell"]) * TILE
 		var rect := Rect2(base, Vector2(Vector2i(e.get("size", Vector2i.ONE)).max(Vector2i.ONE)) * TILE)
@@ -608,12 +627,12 @@ func _add_elements(elements: Array, bell_cells: Array) -> Node2D:
 			"phase":
 				phase_runs[e["kind"]].append(rect)
 			"crumble":
-				var cb := CrumbleBlock.new()
-				cb.rect = rect
-				cb.shake_time = e["shake"]
-				cb.gone_time = e["gone"]
-				cb.player = player
-				cb.crumbled.connect(func(_b): sfx.play("land", 0.3))
+				var cb: StaticBody2D = CrumbleBlock.new()
+				cb.Rect = rect
+				cb.ShakeTime = e["shake"]
+				cb.GoneTime = e["gone"]
+				cb.Player = player
+				cb.connect("Crumbled", func(_b): sfx.play("land", 0.3))
 				level_root.add_child(cb)
 				crumbles.append(cb)
 			"exit":
@@ -626,28 +645,37 @@ func _add_elements(elements: Array, bell_cells: Array) -> Node2D:
 					ex.position = base + Vector2(8, 16)
 				ex.entered.connect(_on_exit)
 				level_root.add_child(ex)
+			"door":
+				var door: StaticBody2D = Door.new()
+				door.Rect = rect
+				door.Link = e["link"]
+				level_root.add_child(door)
+				doors.append(door)
+			"key":
+				key_cells.append([base + Vector2(8, 8), e["link"]])
 			"spring":
 				var spring := Spring.new()
 				spring.position = base + Vector2(8, 16)
 				spring.launch_speed = e["force"]
 				spring.player = player
 				spring.launched.connect(func(_s):
+					Settings.rumble(0.5, 0.2, 0.12)
 					sfx.play("jump", 0.0)
 					add_shake(1.5))
 				level_root.add_child(spring)
 			"mover":
-				var mv := Mover.new()
-				mv.size = rect.size
-				mv.start = base
-				mv.course = Vector2(e["course"]) * TILE
-				mv.speed = e["speed"]
-				mv.speed_back = e.get("speed_back", e["speed"])
-				mv.ease_out = e.get("ease", 0)
-				mv.ease_back = e.get("ease_back", 0)
-				mv.pause = e["pause"]
-				mv.start_at = e["start"]
-				mv.trigger = e.get("trigger", 0)
-				mv.player = player
+				var mv: AnimatableBody2D = Mover.new()
+				mv.Size = rect.size
+				mv.Start = base
+				mv.Course = Vector2(e["course"]) * TILE
+				mv.Speed = e["speed"]
+				mv.SpeedBack = e.get("speed_back", e["speed"])
+				mv.EaseOut = e.get("ease", 0)
+				mv.EaseBack = e.get("ease_back", 0)
+				mv.Pause = e["pause"]
+				mv.StartAt = e["start"]
+				mv.Trigger = e.get("trigger", 0)
+				mv.Player = player
 				level_root.add_child(mv)
 				rails.append_array(_rail_points(rect, e["course"]))
 			"chime":
@@ -676,6 +704,20 @@ func _add_elements(elements: Array, bell_cells: Array) -> Node2D:
 					ch.speed = e["speed"]
 					level_root.add_child(ch)
 					chasers.append(ch)
+	# Les clés après les portes : chacune connaît toutes les portes du niveau
+	for k in key_cells:
+		var key := KeyItem.new()
+		key.home = k[0]
+		key.link = k[1]
+		key.player = player
+		key.doors = doors
+		key.picked.connect(func(_k): sfx.play("crystal", 0.0))
+		key.used.connect(func(_k):
+			sfx.play("candle", 0.0)
+			add_shake(1.5)
+			Settings.rumble(0.3, 0.3, 0.15))
+		level_root.add_child(key)
+		keys.append(key)
 	if not rails.is_empty():
 		var rail := Rail.new()
 		rail.points = rails
@@ -684,18 +726,18 @@ func _add_elements(elements: Array, bell_cells: Array) -> Node2D:
 	for k in phase_runs:
 		if phase_runs[k].is_empty():
 			continue
-		var pb := PhaseBlocks.new()
-		pb.kind = k
-		pb.runs = phase_runs[k]
-		pb.player = player
+		var pb: Node2D = PhaseBlocks.new()
+		pb.Kind = k
+		pb.Runs = phase_runs[k]
+		pb.Player = player
 		level_root.add_child(pb)
 	_add_chimes(chime_runs["a"], chime_runs["b"], bell_cells)
 	var tb: Node2D = null
 	if not (timed_runs[0].is_empty() and timed_runs[1].is_empty()):
 		tb = TimedBlocks.new()
-		tb.runs_1 = timed_runs[0]
-		tb.runs_2 = timed_runs[1]
-		tb.player = player
+		tb.Runs1 = timed_runs[0]
+		tb.Runs2 = timed_runs[1]
+		tb.Player = player
 		level_root.add_child(tb)
 	if not eyes.is_empty():
 		watchers = Watchers.new()
@@ -737,9 +779,9 @@ func _add_chimes(runs_a: Array, runs_b: Array, bell_cells: Array) -> void:
 	if runs_a.is_empty() and runs_b.is_empty() and bell_cells.is_empty():
 		return
 	chimes = ToggleBlocks.new()
-	chimes.runs_a = runs_a
-	chimes.runs_b = runs_b
-	chimes.player = player
+	chimes.RunsA = runs_a
+	chimes.RunsB = runs_b
+	chimes.Player = player
 	level_root.add_child(chimes)
 	var bells := []
 	for c in bell_cells:
@@ -750,14 +792,14 @@ func _add_chimes(runs_a: Array, runs_b: Array, bell_cells: Array) -> void:
 		bells.append(bell)
 	for bell in bells:
 		bell.rung.connect(func(_b):
-			chimes.ring()
+			chimes.Ring()
 			for other in bells:
 				other.shake()
 			sfx.play("candle", 0.0)
 			add_shake(1.0))
 	# Chaque bougie mémorise l'état des cloches
 	for cp in checkpoints:
-		cp.reached.connect(func(_cp, b): if b == player: chimes.save())
+		cp.reached.connect(func(_cp, b): if b == player: chimes.Save())
 
 
 # Chapitre Miroir : le reflet part de "R" ; la caméra suit le milieu des deux fantômes
@@ -775,17 +817,17 @@ func _add_reflection(start: Vector2, glass_cells: Array) -> void:
 			camera.position = Vector2.ZERO
 		return
 	reflection = PlayerScript.new()
-	reflection.mirror = true
+	reflection.Mirror = true
 	# Hérite du monde : s'arrête avec lui sur l'écran titre
 	reflection.process_mode = Node.PROCESS_MODE_INHERIT
 	level_root.add_child(reflection)
 	reflection.modulate = Color(1, 1, 1, 0.7)
-	reflection.respawn(start)
+	reflection.Respawn(start)
 	reflection_respawn = start
 	# Si l'un meurt, l'autre aussi : ils repartent ensemble
-	reflection.died.connect(func():
-		if not player.dead:
-			player.die())
+	reflection.connect("Died", func():
+		if not player.Dead:
+			player.Die())
 	cam_follow.global_position = (start + respawn_point) * 0.5
 	if camera.get_parent() != cam_follow:
 		camera.reparent(cam_follow, false)
@@ -794,9 +836,9 @@ func _add_reflection(start: Vector2, glass_cells: Array) -> void:
 
 func _freeze_ghost(g: CharacterBody2D, frozen: bool) -> void:
 	g.set_physics_process(not frozen)
-	g.visual.visible = not frozen
-	g.light.visible = not frozen
-	g.trail.emitting = not frozen
+	g.Visual.visible = not frozen
+	g.Light.visible = not frozen
+	g.Trail.emitting = not frozen
 	if frozen:
 		g.velocity = Vector2.ZERO
 
@@ -811,7 +853,7 @@ func _mirror_update() -> void:
 		cam_follow.global_position = (pts[0] + pts[1]) * 0.5
 	elif pts.size() == 1:
 		cam_follow.global_position = pts[0]
-	if player.dead or reflection.dead:
+	if player.Dead or reflection.Dead:
 		return
 	if reflection.global_position.y > room_size.y + 24:
 		_mirror_lost(reflection)
@@ -829,13 +871,13 @@ func _mirror_update() -> void:
 # Un fantôme tombé ou sorti de l'écran : les deux meurent, ou, invincibles, repartent ensemble
 func _mirror_lost(g: CharacterBody2D) -> void:
 	if not Settings.invincible:
-		g.die()
+		g.Die()
 		return
 	arrived.clear()
 	_freeze_ghost(player, false)
 	_freeze_ghost(reflection, false)
-	player.respawn(respawn_point)
-	reflection.respawn(reflection_respawn)
+	player.Respawn(respawn_point)
+	reflection.Respawn(reflection_respawn)
 	cam_follow.global_position = (respawn_point + reflection_respawn) * 0.5
 	camera.reset_smoothing()
 	since_respawn = 0.0
@@ -880,7 +922,7 @@ func _add_spike(base: Vector2, kind: String) -> void:
 	area.add_child(cs)
 	area.body_entered.connect(func(b):
 		if b == player or (reflection and b == reflection):
-			b.die())
+			b.Die())
 	level_root.add_child(area)
 
 
@@ -903,7 +945,7 @@ func _add_dust(colors: float) -> void:
 
 func _on_checkpoint(cp, body) -> void:
 	if reflection:
-		if (body == player or body == reflection) and not body.dead:
+		if (body == player or body == reflection) and not body.Dead:
 			_mirror_checkpoint(cp)
 		return
 	if body != player:
@@ -917,8 +959,7 @@ func _on_checkpoint(cp, body) -> void:
 func _on_crystal(cr, body) -> void:
 	if not (body == player or (reflection and body == reflection)) or not cr.active:
 		return
-	if body.dashes < PlayerScript.MAX_DASHES:
-		body.dashes = PlayerScript.MAX_DASHES
+	if body.RefillDash():
 		cr.consume()
 		sfx.play("crystal")
 		add_shake(1.5)
@@ -935,7 +976,7 @@ func _on_spark(sp) -> void:
 func _on_exit(portal, body) -> void:
 	if body == player and portal.secret and not busy:
 		secret_taken = true
-	if reflection and not busy and (body == player or body == reflection) and not body.dead:
+	if reflection and not busy and (body == player or body == reflection) and not body.Dead:
 		# Chacun attend l'autre dans sa sortie ; le niveau finit quand les deux y sont
 		if not arrived.has(body):
 			arrived[body] = true
@@ -1029,12 +1070,13 @@ func _show_end() -> void:
 
 
 func _on_player_died() -> void:
-	if reflection and not reflection.dead:
-		reflection.die()
+	if reflection and not reflection.Dead:
+		reflection.Die()
 		_burst(reflection.global_position, 20, 0.6)
 	deaths += 1
 	level_deaths += 1
 	sfx.play("death")
+	Settings.rumble(0.6, 0.8, 0.3)
 	# Arrêt sur image d'abord, puis tout part d'un coup : éclats, secousse et disque rayé
 	await fx.on_died(player)
 	music.scratch()
@@ -1044,24 +1086,26 @@ func _on_player_died() -> void:
 	for cr in crystals:
 		cr.reset()
 	for cb in crumbles:
-		cb.reset()
+		cb.Reset()
+	for k in keys:
+		k.reset()
 	if chimes:
-		chimes.reset()
+		chimes.Reset()
 	for ch in chasers:
 		ch.reset()
 	if reflection:
 		arrived.clear()
 		_freeze_ghost(player, false)
 		_freeze_ghost(reflection, false)
-		reflection.respawn(reflection_respawn)
+		reflection.Respawn(reflection_respawn)
 		since_respawn = 0.0
 	if dark:
 		dark.reset(respawn_point)
 	if watchers:
 		watchers.reset()
 	if orb_blocks:
-		orb_blocks.reset()
-	player.respawn(respawn_point)
+		orb_blocks.Reset()
+	player.Respawn(respawn_point)
 	hint_orb.snap()
 	if reflection:
 		cam_follow.global_position = (respawn_point + reflection_respawn) * 0.5
@@ -1096,7 +1140,7 @@ func _burst(pos: Vector2, amount: int, life: float) -> void:
 	p.damping_max = 200
 	p.scale_amount_min = 1.5
 	p.scale_amount_max = 3.0
-	p.color_ramp = PlayerScript.fade_gradient(Color.WHITE)
+	p.color_ramp = Glow.fade_gradient(Color.WHITE)
 	p.global_position = pos
 	level_root.add_child(p)
 	p.emitting = true
@@ -1241,14 +1285,14 @@ func _back_to_title() -> void:
 # Touche « Retour à la bougie » ou menu pause : compte comme une mort, et ramène
 # aussi le reflet en Miroir. Invincible, le fantôme est seulement replacé.
 func _return_to_checkpoint() -> void:
-	if player.dead or busy or finished:
+	if player.Dead or busy or finished:
 		return
 	if reflection:
 		_mirror_lost(player)
 	elif Settings.invincible:
-		player.respawn(respawn_point)
+		player.Respawn(respawn_point)
 	else:
-		player.die()
+		player.Die()
 
 
 func _menu_input() -> void:
@@ -1332,10 +1376,10 @@ func _process(delta: float) -> void:
 	if Settings.assisted():
 		run_assisted = true
 		hud_label.text += "    assistance"
-	if Settings.infinite_dash and not player.dead:
-		player.dashes = PlayerScript.MAX_DASHES
+	if Settings.infinite_dash and not player.Dead:
+		player.RefillDash()
 		if reflection:
-			reflection.dashes = PlayerScript.MAX_DASHES
+			reflection.RefillDash()
 
 	if Input.is_action_just_pressed("restart"):
 		_return_to_checkpoint()
@@ -1343,13 +1387,13 @@ func _process(delta: float) -> void:
 	if reflection:
 		since_respawn += delta
 		_mirror_update()
-	if not player.dead and player.global_position.y > room_size.y + 24:
+	if not player.Dead and player.global_position.y > room_size.y + 24:
 		if reflection:
 			_mirror_lost(player)
 		elif Settings.invincible:
-			player.respawn(respawn_point)
+			player.Respawn(respawn_point)
 		else:
-			player.die()
+			player.Die()
 
 	# Décroissance rapide mais visible : un coup sec plutôt qu'un frisson
 	shake = shake * exp(-12.0 * delta)

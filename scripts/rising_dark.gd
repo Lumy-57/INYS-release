@@ -32,7 +32,7 @@ func reset(respawn: Vector2) -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if player.dead or not player.is_physics_processing():
+	if player.Dead or not player.is_physics_processing():
 		return
 	if anchor == Vector2.INF:
 		anchor = player.global_position
@@ -43,7 +43,7 @@ func _physics_process(delta: float) -> void:
 	var rise := speed + maxf(top - feet - reach, 0.0) * catch_up
 	top -= rise * delta
 	if feet > top + 3.0:
-		player.die()
+		player.Die()
 
 
 func _process(delta: float) -> void:

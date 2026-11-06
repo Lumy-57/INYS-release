@@ -4,4 +4,5 @@ export/
 *.uid
 *.tsc
 game.zip
-*.cfg
+*.cfg.vs/
+*.csproj.user
