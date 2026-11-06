@@ -10,6 +10,7 @@ public partial class Player : CharacterBody2D
 	[Signal] public delegate void DashedEventHandler();
 	[Signal] public delegate void JumpedEventHandler();
 	[Signal] public delegate void LandedEventHandler();
+	[Signal] public delegate void BonkedEventHandler();
 
 	public const float RunSpeed = 130f;
 	public const float GroundAccel = 1100f;
@@ -48,6 +49,16 @@ public partial class Player : CharacterBody2D
 	// Zéro gravité (zero_gravity.gd) : la vitesse verticale s'éteint doucement
 	public const float ZeroGDrag = 200f;
 
+	// Mode Ascension : pas de dash ni de wall jump, on charge son saut au sol et on ne dirige plus
+	// rien en l'air ; un mur renvoie le fantôme au lieu de l'arrêter
+	public const float AscentWalk = 60f;
+	public const float AscentChargeTime = 0.6f;
+	public const float AscentJumpMin = -150f;
+	public const float AscentJumpMax = -400f;
+	public const float AscentJumpX = 120f;
+	public const float AscentMaxFall = 400f;
+	public const float AscentBounce = 0.55f;
+
 	// Taille de la boîte du fantôme, en pixels
 	public static readonly Vector2 BoxSize = new(10, 14);
 
@@ -68,6 +79,12 @@ public partial class Player : CharacterBody2D
 	public float LandSpeed;
 	public bool Dead;
 	public bool Mirror;  // reflet du chapitre Miroir : gauche et droite inversées
+	public bool Ascent;  // mode Ascension (main.gd)
+	public bool Charging;
+	public float Charge;  // 0 à 1 pendant qu'on charge le saut
+	// Hauteur de la dernière chute, en pixels (du plus haut point du saut jusqu'au sol)
+	public float LastDrop;
+	float airTop;
 	// Plateforme mobile sous le fantôme (Mover.cs), sinon null
 	public Mover FloorBody;
 	public Vector2 FloorMotion = Vector2.Zero;  // vitesse de cette plateforme, px/s
@@ -153,6 +170,12 @@ public partial class Player : CharacterBody2D
 		if (Freeze > 0.001f)
 		{
 			Freeze -= delta;
+			return;
+		}
+
+		if (Ascent)
+		{
+			AscentProcess(delta);
 			return;
 		}
 
@@ -266,6 +289,80 @@ public partial class Player : CharacterBody2D
 
 		float fall = Velocity.Y;
 		MoveAndSlide();
+		AfterMove(fall);
+	}
+
+	// Mode Ascension. Au sol : on marche lentement, ou on maintient saut pour charger (le fantôme se
+	// tasse) ; au relâcher, ou à pleine charge, il part dans la direction tenue à ce moment-là, plus
+	// haut selon la charge. En l'air, plus aucun contrôle. Toucher un mur renvoie dans l'autre sens.
+	void AscentProcess(float delta)
+	{
+		float ix = AxisX();
+		bool onFloor = IsOnFloor();
+		Vector2 v = Velocity;
+		if (onFloor)
+		{
+			Dashes = MaxDashes;
+			if (!Charging && Input.IsActionJustPressed("jump"))
+			{
+				Charging = true;
+				Charge = 0f;
+			}
+			if (Charging)
+			{
+				Charge = Mathf.Min(1f, Charge + delta / AscentChargeTime);
+				v.X = 0f;
+				if (ix != 0f)
+					Facing = Mathf.Sign(ix);
+				Visual.Scale = new Vector2(1f + 0.3f * Charge, 1f - 0.35f * Charge);
+				if (!Input.IsActionPressed("jump") || Charge >= 1f)
+				{
+					Charging = false;
+					v = new Vector2(Mathf.Sign(ix) * AscentJumpX, Mathf.Lerp(AscentJumpMin, AscentJumpMax, Charge));
+					Charge = 0f;
+					Carry = Vector2.Zero;
+					Visual.Scale = new Vector2(0.7f, 1.35f);
+					EmitSignal(SignalName.Jumped);
+				}
+			}
+			else
+			{
+				float accel = OnIce() ? (ix != 0f ? IceAccel : IceDecel) : GroundDecel;
+				v.X = Mathf.MoveToward(v.X, ix * AscentWalk, accel * delta);
+				if (ix != 0f)
+					Facing = Mathf.Sign(ix);
+			}
+		}
+		else
+			Charging = false;
+		v.Y = Mathf.MoveToward(v.Y, AscentMaxFall, Gravity * delta);
+		Velocity = v;
+
+		float fall = Velocity.Y;
+		float pushX = Velocity.X;
+		MoveAndSlide();
+		// Rebond : le mur renvoie le fantôme, avec un peu moins d'élan
+		if (!IsOnFloor() && pushX != 0f)
+		{
+			for (int i = 0; i < GetSlideCollisionCount(); i++)
+			{
+				var n = GetSlideCollision(i).GetNormal();
+				if (Mathf.Abs(n.X) > 0.9f && Mathf.Sign(n.X) != Mathf.Sign(pushX))
+				{
+					Velocity = new Vector2(-pushX * AscentBounce, Velocity.Y);
+					Facing = pushX > 0f ? -1 : 1;
+					Visual.Scale = new Vector2(0.75f, 1.25f);
+					EmitSignal(SignalName.Bonked);
+					break;
+				}
+			}
+		}
+		if (IsOnFloor() && !WasOnFloor)
+		{
+			LastDrop = GlobalPosition.Y - airTop;
+			Velocity = new Vector2(OnIce() ? Velocity.X : 0f, Velocity.Y);
+		}
+		airTop = IsOnFloor() ? GlobalPosition.Y : Mathf.Min(airTop, GlobalPosition.Y);
 		AfterMove(fall);
 	}
 
@@ -549,6 +646,10 @@ public partial class Player : CharacterBody2D
 		Coyote = 0f;
 		WallLock = 0f;
 		Jumping = false;
+		Charging = false;
+		Charge = 0f;
+		LastDrop = 0f;
+		airTop = pos.Y;
 		Visual.Visible = true;
 		Visual.Scale = new Vector2(0.6f, 1.4f);
 		Light.Visible = true;

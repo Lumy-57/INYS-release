@@ -1,4 +1,4 @@
-# Menu de l'écran titre : continuer, nouvelle partie, choix du niveau, statistiques, crédits, options,
+# Menu de l'écran titre : continuer, nouvelle partie, choix du niveau, Ascension (le mode rageant), statistiques, crédits, options,
 # signaler (un bug ou une remarque, voir bug_report.gd), nouvelle version (si update_check.gd en a trouvé une), quitter.
 # Les niveaux sont regroupés par chapitres : les niveaux consécutifs de même clé "chapter".
 extends Node
@@ -66,6 +66,7 @@ func _items() -> Array:
 	items.append(["new", "Nouvelle partie"])
 	# Ouvre l'écran des chapitres sur le chapitre en cours ; on y choisit chapitre et niveau
 	items.append(["chapter", "Choix du niveau"])
+	items.append(["ascent", "Ascension · saut chargé, chutes sans pitié"])
 	items.append(["journal", "Journal"])
 	items.append(["stats", "Statistiques"])
 	items.append(["credits", "Crédits"])
@@ -133,6 +134,9 @@ func _process(_delta: float) -> void:
 				_start(0, true)
 			"chapter":
 				open_chapters.emit(chapter)
+			"ascent":
+				active = false
+				main.start_ascent()
 			"journal":
 				open_journal.emit()
 			"stats":

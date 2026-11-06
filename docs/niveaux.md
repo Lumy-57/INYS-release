@@ -229,3 +229,30 @@ suivants ; il faut alors insérer un fragment au même endroit.
   (`element.gd`), avec ses réglages en `@export`, son aperçu dans `_draw()` et ses réglages
   pour le jeu dans `element_data()` (un dictionnaire avec un `"type"`) ; une scène `.tscn` d'un
   seul nœud avec ce script ; puis son cas dans `scripts/main.gd` (`_add_elements`).
+
+## Le mode Ascension
+
+L'Ascension est un mode à part, ouvert depuis l'écran titre (« Ascension »). Le jeu principal
+ne change pas. Ses niveaux sont rangés dans `levels/ascension/`, dans l'ordre de
+`levels/ascension/list.tres`, et ils se peignent exactement comme les autres. Ils ne comptent ni
+dans la partie, ni dans les chapitres, ni dans le journal. Leurs records sont gardés à part, par
+nom de niveau.
+
+La physique y est différente (`scripts/physique/Player.cs`, `AscentProcess`) :
+
+- **pas de dash ni de wall jump** ;
+- au sol, on marche lentement ; **maintenir saut charge le saut** (le fantôme se tasse). Au
+  relâcher, ou à pleine charge (0,6 s), il part dans la direction tenue à ce moment-là : tout
+  droit sans direction, en avant sinon. Plus la charge est longue, plus il saute haut (jusqu'à
+  environ 5 cases) ;
+- **en l'air, plus aucun contrôle** ;
+- **un mur renvoie le fantôme** dans l'autre sens, avec un peu moins d'élan ; un plafond le
+  fait retomber ;
+- tomber ne tue pas : on retombe plus bas et il faut tout remonter. Les niveaux doivent donc
+  avoir un **sol tout en bas**. Une chute de plus de 6 cases secoue l'écran et compte comme
+  une « chute » (affichée avec le temps).
+
+Les réglages (hauteur, portée, temps de charge, rebond) sont les constantes `Ascent…` en haut de
+`Player.cs`. Repère pour dessiner : à pleine charge, le fantôme monte de 3 cases en avançant
+d'environ 5 cases, ou de 5 cases en avançant d'environ 4. Les pics marchent encore, mais une mort
+ramène au départ `P` : à utiliser avec parcimonie.
