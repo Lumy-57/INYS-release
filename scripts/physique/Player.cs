@@ -424,9 +424,19 @@ public partial class Player : CharacterBody2D
 	// saut et des points sur la courbe qu'il suivrait (sans tenir compte des murs)
 	public override void _Draw()
 	{
-		if (!Ascent || !Charging || Dead || settings == null || !settings.Get("debug_aim").AsBool())
+		if (!Ascent || !Charging || Dead || settings == null)
 			return;
 		var v = AscentJumpVelocity();
+		// Guide de visée (option, activé par défaut) : trois points devant le fantôme, dans la
+		// direction du saut, qui s'écartent à mesure que la charge monte
+		if (settings.Get("ascent_guide").AsBool())
+		{
+			var dir = v.Normalized();
+			for (int i = 0; i < 3; i++)
+				DrawCircle(dir * (11f + (5f + 4f * Charge) * i), 1.2f - 0.2f * i, new Color(1f, 1f, 1f, 0.6f - 0.15f * i));
+		}
+		if (!settings.Get("debug_aim").AsBool())
+			return;
 		var col = new Color(1f, 0.85f, 0.3f, 0.9f);
 		DrawLine(Vector2.Zero, v.Normalized() * (12f + 28f * Charge), col, 1.5f);
 		var p = Vector2.Zero;
@@ -690,6 +700,10 @@ public partial class Player : CharacterBody2D
 		}
 		Visual.Position = pos;
 		Visual.Set("facing", Facing);
+		// En chargeant, le fantôme regarde où il va sauter et se penche de ce côté
+		Visual.Set("aim", Ascent && Charging ? AscentJumpVelocity().Normalized() : Vector2.Zero);
+		float lean = Ascent && Charging ? Aim * 0.3f : 0f;
+		Visual.Rotation = Mathf.Lerp(Visual.Rotation, lean, 1f - Mathf.Exp(-18f * delta));
 		Visual.Set("gaze", Velocity / 180f);
 		float idle = Visual.Get("idle").AsSingle();
 		// Le moindre geste réveille le fantôme (même sans bouger : charger un saut, appuyer contre un mur)

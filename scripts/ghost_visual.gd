@@ -19,6 +19,8 @@ var animated := true
 var t := 0.0
 # Direction du regard, de -1 à 1 sur chaque axe ; le joueur y met sa vitesse
 var gaze := Vector2.ZERO
+# Visée du saut chargé (mode Ascension) : direction du saut, les yeux y vont franchement
+var aim := Vector2.ZERO
 # Temps passé immobile : au repos, le souffle s'approfondit et le regard flâne
 var idle := 0.0
 var blink_in := 0.0
@@ -148,6 +150,8 @@ func _draw_idle(bob: float) -> void:
 # Décalage des yeux : vers la direction du mouvement, ou un coup d'œil au repos
 func _gaze() -> Vector2:
 	var g := gaze
+	if aim != Vector2.ZERO:
+		return (aim * 2.0).round()
 	if idle >= ASK_AT:
 		# Il regarde le joueur, droit devant, un peu vers le bas
 		g = Vector2(0.0, 0.4)
