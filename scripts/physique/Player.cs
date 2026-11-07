@@ -88,9 +88,12 @@ public partial class Player : CharacterBody2D
 	public bool Ascent;  // mode Ascension (main.gd)
 	public bool Charging;
 	public float Charge;  // 0 à 1 pendant qu'on charge le saut
-	// Visée pendant la charge, de -1 (tout à gauche) à 1 (tout à droite) : le temps passé à tenir
-	// droite moins le temps passé à tenir gauche, rapporté au temps de charge complet
+	// Visée pendant la charge, de -1 (tout à gauche) à 1 (tout à droite) : la part de la charge
+	// passée à tenir droite, moins celle passée à tenir gauche. Tenir un côté toute la charge, même
+	// courte, donne 100 % ; la moitié du temps, 50 %
 	public float Aim;
+	float chargeTime;
+	float aimTime;  // temps à droite moins temps à gauche, depuis le début de la charge
 	// Hauteur de la dernière chute, en pixels (du plus haut point du saut jusqu'au sol)
 	public float LastDrop;
 	public float Splat;  // force de l'écrasement en cours, 0 à 1
@@ -333,12 +336,16 @@ public partial class Player : CharacterBody2D
 				Charging = true;
 				Charge = 0f;
 				Aim = 0f;
+				chargeTime = 0f;
+				aimTime = 0f;
 			}
 			if (Charging)
 			{
 				Charge = Mathf.Min(1f, Charge + delta / AscentChargeTime);
-				// Gauche et droite se chargent aussi : plus on les tient, plus le saut part de côté
-				Aim = Mathf.Clamp(Aim + Mathf.Sign(ix) * delta / AscentChargeTime, -1f, 1f);
+				// Gauche et droite comptent en part de la charge : le pourcentage du temps tenu
+				chargeTime += delta;
+				aimTime += Mathf.Sign(ix) * delta;
+				Aim = Mathf.Clamp(aimTime / chargeTime, -1f, 1f);
 				v.X = 0f;
 				if (Aim != 0f)
 					Facing = Mathf.Sign(Aim);

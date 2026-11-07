@@ -242,9 +242,10 @@ La physique y est différente (`scripts/physique/Player.cs`, `AscentProcess`) :
 
 - **pas de dash ni de wall jump** ;
 - au sol, on marche lentement ; **maintenir saut charge le saut** (le fantôme se tasse). Au
-  relâcher, ou à pleine charge (1 s), il part. **Gauche et droite se chargent aussi** : pendant
-  la charge, le temps passé à tenir droite (moins celui passé à tenir gauche) fixe l'élan de
-  côté ; sans rien tenir, il saute tout droit. Plus la charge est longue, plus il saute haut (jusqu'à
+  relâcher, ou à pleine charge (1 s), il part. **Gauche et droite comptent en pourcentage de la
+  charge** : tenir droite pendant toute la charge (courte ou longue) donne 100 % d'élan à
+  droite, la moitié du temps 50 %, et tenir gauche retire autant ; sans rien tenir, il saute
+  tout droit. Plus la charge est longue, plus il saute haut (jusqu'à
   environ 8 cases) ;
 - **en l'air, plus aucun contrôle** ;
 - **un mur renvoie le fantôme** dans l'autre sens, en gardant presque tout son élan ; un plafond le
