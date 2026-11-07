@@ -1438,6 +1438,11 @@ func _sleep_zoom(delta: float) -> void:
 	# On s'approche au rythme du sommeil ; au réveil, la caméra recule d'un coup
 	z = target if target > z else lerpf(z, target, 1.0 - exp(-8.0 * delta))
 	camera.zoom = Vector2(z, z)
+	# Pendant le zoom, les textes s'effacent (chrono, nom du niveau, bulle de l'orbe) : il ne reste
+	# que le fantôme qui dort
+	var shown := clampf(1.0 - (z - 1.0) / 0.3, 0.0, 1.0)
+	for label in [hud_label, title_label, hint_orb.bubble]:
+		label.self_modulate.a = shown
 
 
 func _menu_levels() -> int:
