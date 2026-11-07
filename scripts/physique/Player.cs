@@ -55,7 +55,9 @@ public partial class Player : CharacterBody2D
 	public const float AscentChargeTime = 1.0f;
 	public const float AscentJumpMin = -150f;
 	public const float AscentJumpMax = -520f;
-	public const float AscentJumpX = 150f;
+	// Angle du saut depuis la verticale à 100 % de visée, en degrés : la force du saut se partage
+	// entre la hauteur et le côté
+	public const float AscentMaxAngle = 60f;
 	public const float AscentMaxFall = 400f;
 	public const float AscentBounce = 0.85f;
 	// Écrasement à l'atterrissage : à partir de 2 cases de chute, à fond vers 22 cases ; le fantôme
@@ -408,9 +410,14 @@ public partial class Player : CharacterBody2D
 		AfterMove(fall);
 	}
 
-	// Vitesse de départ du saut chargé : la hauteur suit la charge, le côté suit la visée
-	public Vector2 AscentJumpVelocity() =>
-		new(Aim * AscentJumpX, Mathf.Lerp(AscentJumpMin, AscentJumpMax, Charge));
+	// Vitesse de départ du saut chargé : sa force suit la charge, son angle suit la visée
+	// (tout droit à 0 %, AscentMaxAngle depuis la verticale à 100 %)
+	public Vector2 AscentJumpVelocity()
+	{
+		float power = -Mathf.Lerp(AscentJumpMin, AscentJumpMax, Charge);
+		float angle = Mathf.DegToRad(AscentMaxAngle) * Aim;
+		return new Vector2(Mathf.Sin(angle), -Mathf.Cos(angle)) * power;
+	}
 
 	// Option de debug « Trajectoire du saut » : pendant la charge, un trait dans la direction du
 	// saut et des points sur la courbe qu'il suivrait (sans tenir compte des murs)

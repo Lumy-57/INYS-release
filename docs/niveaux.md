@@ -245,7 +245,8 @@ La physique y est différente (`scripts/physique/Player.cs`, `AscentProcess`) :
   relâcher, ou à pleine charge (1 s), il part. **Gauche et droite comptent en pourcentage de la
   charge** : tenir droite pendant toute la charge (courte ou longue) donne 100 % d'élan à
   droite, la moitié du temps 50 %, et tenir gauche retire autant ; sans rien tenir, il saute
-  tout droit. Plus la charge est longue, plus il saute haut (jusqu'à
+  tout droit. La visée règle l'angle (jusqu'à 60° depuis la verticale, `AscentMaxAngle`) : la
+  force du saut se partage entre la hauteur et le côté. Plus la charge est longue, plus il saute haut (jusqu'à
   environ 8 cases) ;
 - **en l'air, plus aucun contrôle** ;
 - **un mur renvoie le fantôme** dans l'autre sens, en gardant presque tout son élan ; un plafond le
@@ -260,7 +261,6 @@ L'option **Debug · trajectoire du saut** (Options) montre pendant la charge un 
 direction du saut et la courbe qu'il suivrait, sans tenir compte des murs.
 
 Les réglages (hauteur, portée, temps de charge, rebond) sont les constantes `Ascent…` en haut de
-`Player.cs`. Repère pour dessiner : à pleine charge, le fantôme monte de 5 cases en avançant
-d'environ 8 cases ; il part toujours vite de côté, donc deux marches proches et hautes se
-ratent facilement. Les pics marchent encore, mais une mort
+`Player.cs`. Repère pour dessiner : tout droit à pleine charge, le fantôme monte d'environ 8 cases ; à
+60°, il ne monte plus que de 2 cases mais file d'une dizaine de cases sur le côté. Les pics marchent encore, mais une mort
 ramène au départ `P` : à utiliser avec parcimonie.
