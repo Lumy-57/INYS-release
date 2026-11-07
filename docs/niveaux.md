@@ -241,8 +241,8 @@ nom de niveau.
 La physique y est différente (`scripts/physique/Player.cs`, `AscentProcess`) :
 
 - **pas de dash ni de wall jump** ;
-- au sol, on marche lentement ; **maintenir saut charge le saut** (le fantôme se tasse). Au
-  relâcher, ou à pleine charge (1 s), il part. **Gauche et droite comptent en pourcentage de la
+- au sol, on marche lentement ; **maintenir saut charge le saut** (le fantôme se tasse). La
+  charge plafonne à 1 s, mais le fantôme ne part qu'au relâcher : la visée compte jusque-là. **Gauche et droite comptent en pourcentage de la
   charge** : tenir droite pendant toute la charge (courte ou longue) donne 100 % d'élan à
   droite, la moitié du temps 50 %, et tenir gauche retire autant ; sans rien tenir, il saute
   tout droit. La visée règle l'angle (jusqu'à 60° depuis la verticale, `AscentMaxAngle`) : la

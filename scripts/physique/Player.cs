@@ -312,8 +312,8 @@ public partial class Player : CharacterBody2D
 	}
 
 	// Mode Ascension. Au sol : on marche lentement, ou on maintient saut pour charger (le fantôme se
-	// tasse) ; au relâcher, ou à pleine charge, il part dans la direction tenue à ce moment-là, plus
-	// haut selon la charge. En l'air, plus aucun contrôle. Toucher un mur renvoie dans l'autre sens.
+	// tasse, la charge plafonne à 1) ; il ne part qu'au relâcher, avec la force de la charge et
+	// l'angle de la visée. En l'air, plus aucun contrôle. Toucher un mur renvoie dans l'autre sens.
 	void AscentProcess(float delta)
 	{
 		float ix = AxisX();
@@ -352,7 +352,8 @@ public partial class Player : CharacterBody2D
 				if (Aim != 0f)
 					Facing = Mathf.Sign(Aim);
 				Visual.Scale = new Vector2(1f + 0.3f * Charge, 1f - 0.35f * Charge);
-				if (!Input.IsActionPressed("jump") || Charge >= 1f)
+				// Pleine charge : le fantôme attend qu'on relâche, la visée compte jusque-là
+				if (!Input.IsActionPressed("jump"))
 				{
 					Charging = false;
 					v = AscentJumpVelocity();
