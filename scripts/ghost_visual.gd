@@ -9,9 +9,9 @@ extends Node2D
 const BREATH := 1.9         # pulsation du souffle, en radians par seconde
 const BLINK := 0.14         # durée d'un clignement
 # Repos (secondes d'immobilité) : il regarde le joueur, s'assoupit, puis dort
-const ASK_AT := 6.0
-const DROWSY_AT := 11.0
-const SLEEP_AT := 13.0
+const ASK_AT := 15.0
+const DROWSY_AT := 30.0
+const SLEEP_AT := 45.0
 
 var facing := 1
 var tint := Color.WHITE
