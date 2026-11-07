@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="LevelList" format=3]
+
+[ext_resource type="Script" path="res://levels/level_list.gd" id="1_list"]
+[ext_resource type="PackedScene" path="res://levels/ascension/puits.tscn" id="2_puits"]
+[ext_resource type="PackedScene" path="res://levels/ascension/tour.tscn" id="3_tour"]
+[ext_resource type="PackedScene" path="res://levels/ascension/faite.tscn" id="4_faite"]
+
+[resource]
+script = ExtResource("1_list")
+levels = Array[PackedScene]([ExtResource("2_puits"), ExtResource("3_tour"), ExtResource("4_faite")])

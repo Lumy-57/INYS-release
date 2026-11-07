@@ -48,6 +48,7 @@ func _items() -> Array:
 		["Vitesse du jeu", "game_speed", "speed"],
 		["Dash infini", "infinite_dash", "bool"],
 		["Invincible", "invincible", "bool"],
+		["Debug · trajectoire du saut (Ascension)", "debug_aim", "bool"],
 		["Touches", "", "controls"],
 	]
 	# Seulement depuis l'écran titre : effacer la sauvegarde en pleine partie la casserait

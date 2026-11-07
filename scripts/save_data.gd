@@ -107,6 +107,27 @@ func record_run(time: float, deaths: int) -> bool:
 	return is_record
 
 
+# Mode Ascension : records rangés à part, par nom de niveau (ils ne bougent pas avec la liste)
+func best_ascent_time(name: String) -> float:
+	return cfg.get_value("ascent", "time_" + name.validate_node_name(), -1.0)
+
+
+func best_ascent_falls(name: String) -> int:
+	return cfg.get_value("ascent", "falls_" + name.validate_node_name(), -1)
+
+
+func record_ascent(name: String, time: float, falls: int) -> bool:
+	var key := name.validate_node_name()
+	var is_record := _better(time, best_ascent_time(name))
+	if is_record:
+		cfg.set_value("ascent", "time_" + key, time)
+	var bf := best_ascent_falls(name)
+	if bf < 0 or falls < bf:
+		cfg.set_value("ascent", "falls_" + key, falls)
+	cfg.save(PATH)
+	return is_record
+
+
 func _better(time: float, best: float) -> bool:
 	return best < 0.0 or time < best
 

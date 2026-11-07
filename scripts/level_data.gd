@@ -22,13 +22,17 @@
 extends RefCounted
 
 const LIST = preload("res://levels/list.tres")
+# Les niveaux du mode Ascension (levels/ascension/list.tres) : à part, ils ne comptent ni dans la
+# partie, ni dans les chapitres, ni dans la sauvegarde des niveaux
+const ASCENT_LIST = preload("res://levels/ascension/list.tres")
 
-static var LEVELS: Array = _load_levels()
+static var LEVELS: Array = _load_levels(LIST)
+static var ASCENT: Array = _load_levels(ASCENT_LIST)
 
 
-static func _load_levels() -> Array:
+static func _load_levels(list: Resource) -> Array:
 	var out := []
-	for scene in LIST.levels:
+	for scene in list.levels:
 		var level = scene.instantiate()
 		out.append(level.to_data())
 		level.free()
@@ -38,7 +42,11 @@ static func _load_levels() -> Array:
 # Les cases du niveau, calques réunis : grid[y][x] est la chaîne des caractères de la case
 # ("" si elle est vide, "-^" pour des pics posés sur un rail…)
 static func grid(index: int) -> Array:
-	var layers: Array = LEVELS[index]["layers"]
+	return grid_of(LEVELS[index])
+
+
+static func grid_of(data: Dictionary) -> Array:
+	var layers: Array = data["layers"]
 	var out := []
 	for y in (layers[0].size() if layers else 0):
 		var row := []

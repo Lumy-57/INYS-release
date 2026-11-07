@@ -57,6 +57,16 @@ const RIM := 4.0  # liseré non occultant : les bords des murs captent la lumiè
 const SOLID_CHARS := ["#", "=", "r", "t", "g"]
 
 var level_index := 0
+# Mode Ascension : les niveaux de levels/ascension/, la physique du saut chargé (Player.cs), pas de
+# mort en tombant (les niveaux ont un fond) ; level_index compte alors dans LevelData.ASCENT
+var ascent := false
+var falls := 0  # grandes chutes du niveau en cours (mode Ascension)
+const BIG_FALL := 6 * TILE
+# Le fantôme endormi (ghost_visual.gd, SLEEP_AT = 13 s d'immobilité) : une seconde plus tard,
+# la caméra s'approche doucement de lui, jusqu'à SLEEP_ZOOM ; elle recule vite au réveil
+const SLEEP_ZOOM_AT := 14.0
+const SLEEP_ZOOM := 2.0
+const SLEEP_ZOOM_TIME := 5.0
 var world: Node2D
 var level_root: Node2D
 var chapter_intro: CanvasLayer
@@ -176,7 +186,19 @@ func _ready() -> void:
 		sfx.play("jump", 0.1))
 	player.connect("Landed", func():
 		fx.on_landed(player)
-		sfx.play("land", 0.15))
+		sfx.play("land", 0.15)
+		# Ascension : une grande chute se sent et se compte
+		if ascent and player.LastDrop > BIG_FALL:
+			falls += 1
+			add_shake(minf(6.0, 2.0 + player.LastDrop / 64.0))
+			# La poussière gicle de chaque côté, plus fort quand la chute est haute
+			_burst(player.global_position + Vector2(0, 7), int(10 + 30 * player.Splat), 0.35 + 0.35 * player.Splat)
+			Settings.rumble(0.5, 0.3, 0.15)
+			sfx.play("death", 0.1))
+	player.connect("Bonked", func():
+		add_shake(1.5)
+		Settings.rumble(0.3, 0.0, 0.06)
+		sfx.play("land", 0.1))
 
 	# Après le joueur : les statistiques écoutent ses signaux
 	stats = Stats.new()
@@ -340,15 +362,17 @@ func _load_level(index: int) -> void:
 	sparks.clear()
 	sparks_taken.clear()
 	secret_taken = false
-	var found_sparks := save.found_sparks(index)
+	var found_sparks := [] if ascent else save.found_sparks(index)
 	level_time = 0.0
 	level_deaths = 0
+	falls = 0
+	player.Ascent = ascent
 
-	var data: Dictionary = LevelData.LEVELS[index]
-	var colors := Palette.strength(index)
+	var data: Dictionary = _level_data(index)
+	var colors := 0.0 if ascent else Palette.strength(index)
 	# Une case peut porter plusieurs éléments (un par calque de la scène) : grid[y][x] est la chaîne
 	# de leurs caractères, "" pour une case vide
-	var grid := LevelData.grid(index)
+	var grid := LevelData.grid_of(data)
 	var h := grid.size()
 	var w: int = grid[0].size() if h > 0 else 0
 	room_size = Vector2(w, h) * TILE
@@ -558,8 +582,10 @@ func _load_level(index: int) -> void:
 	player.Light.color = Palette.light(colors)
 	# Chaque chapitre a son thème ; l'énergie monte au fil du jeu et au fil du chapitre
 	music.set_chapter(data.get("chapter", ""))
-	var in_chapter := _chapter_progress(index)
-	if LevelData.is_epilogue(index):
+	var in_chapter := 0.0 if ascent else _chapter_progress(index)
+	if ascent:
+		music.set_intensity(0.5 + 0.5 * float(index) / maxf(1.0, LevelData.ASCENT.size() - 1.0))
+	elif LevelData.is_epilogue(index):
 		music.set_intensity(0.1 + 0.3 * in_chapter)
 	elif LevelData.is_bside(index):
 		music.set_intensity(1.0)  # face B : la musique au plus fort
@@ -572,10 +598,11 @@ func _load_level(index: int) -> void:
 	camera.limit_top = 0
 	camera.limit_right = int(room_size.x)
 	camera.limit_bottom = int(room_size.y)
+	camera.zoom = Vector2.ONE
 	player.Respawn(respawn_point)
 	camera.reset_smoothing()
 	hint_orb.set_hints(hints)
-	if not on_title and not LevelData.is_bside(index):
+	if not on_title and not ascent and not LevelData.is_bside(index):
 		save.set_last_level(index)
 
 	title_label.text = _level_label(index)
@@ -589,9 +616,16 @@ func _load_level(index: int) -> void:
 
 # « 12 · Clocher », ou « Face B · … » pour une face B
 func _level_label(index: int) -> String:
+	if ascent:
+		return "Ascension %d · %s" % [index + 1, LevelData.ASCENT[index]["name"]]
 	if LevelData.is_bside(index):
 		return "Face B · %s" % LevelData.LEVELS[index]["name"]
 	return "%d · %s" % [index + 1, LevelData.LEVELS[index]["name"]]
+
+
+# Le niveau n° index de la liste en cours : l'histoire, ou l'Ascension
+func _level_data(index: int) -> Dictionary:
+	return LevelData.ASCENT[index] if ascent else LevelData.LEVELS[index]
 
 
 # Les éléments réglables posés dans la scène du niveau (levels/elements/) : chacun arrive en
@@ -991,6 +1025,9 @@ func _on_exit(portal, body) -> void:
 	busy = true
 	sfx.play("exit", 0.0)
 	player.set_physics_process(false)
+	if ascent:
+		_ascent_exit()
+		return
 	# Avec l'assistance, on garde les étincelles mais pas les records
 	var record := false
 	var previous_best: float = save.best_level_time(level_index)
@@ -1049,6 +1086,40 @@ func _on_exit(portal, body) -> void:
 		busy = false
 	else:
 		_show_end()
+
+
+# Sortie d'un niveau de l'Ascension : temps et chutes, puis le suivant, ou l'écran titre au bout
+func _ascent_exit() -> void:
+	var lvl_name: String = LevelData.ASCENT[level_index]["name"]
+	var previous_best: float = save.best_ascent_time(lvl_name)
+	var record := false
+	if not Settings.assisted():
+		record = save.record_ascent(lvl_name, level_time, falls)
+	stats.level_finished()
+	await fx.iris_close(player)
+	var card := "%s\n\n%s   ·   %s" % [_level_label(level_index), _format_time(level_time), _falls_text(falls)]
+	if previous_best >= 0.0 and not Settings.assisted():
+		var gap := level_time - previous_best
+		card += "\n%s%s s par rapport au record" % ["−" if gap < 0.0 else "+", ("%.2f" % absf(gap)).replace(".", ",")]
+	if record:
+		card += "\n\nrecord !"
+	fx.show_card(card)
+	await get_tree().create_timer(1.6, false).timeout
+	fx.hide_card()
+	if level_index + 1 < LevelData.ASCENT.size():
+		_load_level(level_index + 1)
+		player.set_physics_process(true)
+		fx.iris_open(player)
+		busy = false
+	else:
+		_back_to_title()
+		fx.iris_open(player)
+
+
+static func _falls_text(n: int) -> String:
+	if n == 0:
+		return "aucune chute"
+	return "%d chute%s" % [n, "s" if n > 1 else ""]
 
 
 func _show_end() -> void:
@@ -1202,12 +1273,18 @@ func _on_title_start(level: int, from_start: bool) -> void:
 	player.set_physics_process(true)
 	_load_level(level)
 	# Ouverture de chapitre (ou de face B) : le fantôme et le chrono attendent la fin de la carte
-	if ChapterIntro.starts_chapter(level) or LevelData.is_bside(level):
+	if not ascent and (ChapterIntro.starts_chapter(level) or LevelData.is_bside(level)):
 		busy = true
 		player.set_physics_process(false)
 		await chapter_intro.play(level)
 		player.set_physics_process(true)
 		busy = false
+
+
+# Écran titre > Ascension : le mode rageant, depuis son premier niveau
+func start_ascent() -> void:
+	ascent = true
+	_on_title_start(0, false)
 
 
 func _start_epilogue() -> void:
@@ -1240,12 +1317,11 @@ func _toggle_pause() -> void:
 
 
 func _draw_menu() -> void:
-	var lvl: Dictionary = LevelData.LEVELS[menu_level]
 	var items := [
 		"Reprendre",
 		"Retour à la bougie",
 		"Recommencer le niveau",
-		"<  %s  >" % ("Niveau " + _level_label(menu_level) if not LevelData.is_bside(menu_level) else _level_label(menu_level)),
+		"<  %s  >" % ("Niveau " + _level_label(menu_level) if not ascent and not LevelData.is_bside(menu_level) else _level_label(menu_level)),
 		"Options",
 		"Écran titre",
 		"Quitter le jeu",
@@ -1261,6 +1337,14 @@ func _draw_menu() -> void:
 
 # Record et étincelles d'un niveau, pour le choix du niveau
 func _level_info(index: int) -> String:
+	if ascent:
+		var lvl_name: String = LevelData.ASCENT[index]["name"]
+		var best_time := save.best_ascent_time(lvl_name)
+		var info := "record %s" % (_format_time(best_time) if best_time >= 0.0 else "—")
+		var best_falls := save.best_ascent_falls(lvl_name)
+		if best_falls >= 0:
+			info += "   ·   au mieux %s" % _falls_text(best_falls)
+		return info
 	var best := save.best_level_time(index)
 	var info := "record %s" % (_format_time(best) if best >= 0.0 else "—")
 	var total := LevelData.count(index, "*")
@@ -1279,7 +1363,12 @@ func _back_to_title() -> void:
 	run_valid = true
 	run_assisted = false
 	_show_title()
-	_load_level(level_index)
+	if ascent:
+		# Derrière le titre, on retrouve le niveau de l'histoire où l'on en était
+		ascent = false
+		_load_level(save.last_level())
+	else:
+		_load_level(level_index)
 
 
 # Touche « Retour à la bougie » ou menu pause : compte comme une mort, et ramène
@@ -1306,9 +1395,9 @@ func _menu_input() -> void:
 	elif Input.is_action_just_pressed("down"):
 		menu_index = posmod(menu_index + 1, 7)
 	elif menu_index == 3 and Input.is_action_just_pressed("left"):
-		menu_level = posmod(menu_level - 1, save.playable_levels())
+		menu_level = posmod(menu_level - 1, _menu_levels())
 	elif menu_index == 3 and Input.is_action_just_pressed("right"):
-		menu_level = posmod(menu_level + 1, save.playable_levels())
+		menu_level = posmod(menu_level + 1, _menu_levels())
 	elif Input.is_action_just_pressed("jump") or Input.is_action_just_pressed("dash"):
 		match menu_index:
 			0:
@@ -1336,6 +1425,28 @@ func _menu_input() -> void:
 				get_tree().quit()
 		return
 	_draw_menu()
+
+
+# La caméra s'approche du fantôme endormi (pas en Miroir : elle y suit les deux fantômes)
+func _sleep_zoom(delta: float) -> void:
+	var idle: float = player.Visual.get("idle")
+	var target := 1.0
+	if not reflection and idle > SLEEP_ZOOM_AT:
+		var k := clampf((idle - SLEEP_ZOOM_AT) / SLEEP_ZOOM_TIME, 0.0, 1.0)
+		target = lerpf(1.0, SLEEP_ZOOM, k * k * (3.0 - 2.0 * k))
+	var z := camera.zoom.x
+	# On s'approche au rythme du sommeil ; au réveil, la caméra recule d'un coup
+	z = target if target > z else lerpf(z, target, 1.0 - exp(-8.0 * delta))
+	camera.zoom = Vector2(z, z)
+	# Pendant le zoom, les textes s'effacent (chrono, nom du niveau, bulle de l'orbe) : il ne reste
+	# que le fantôme qui dort
+	var shown := clampf(1.0 - (z - 1.0) / 0.3, 0.0, 1.0)
+	for label in [hud_label, title_label, hint_orb.bubble]:
+		label.self_modulate.a = shown
+
+
+func _menu_levels() -> int:
+	return LevelData.ASCENT.size() if ascent else save.playable_levels()
 
 
 func _process(delta: float) -> void:
@@ -1372,7 +1483,10 @@ func _process(delta: float) -> void:
 		elapsed += delta / Engine.time_scale
 		level_time += delta / Engine.time_scale
 	hud_label.visible = Settings.show_timer
-	hud_label.text = "Morts : %d    %s" % [deaths, _format_time(elapsed)]
+	if ascent:
+		hud_label.text = "Chutes : %d    %s" % [falls, _format_time(level_time)]
+	else:
+		hud_label.text = "Morts : %d    %s" % [deaths, _format_time(elapsed)]
 	if Settings.assisted():
 		run_assisted = true
 		hud_label.text += "    assistance"
@@ -1400,5 +1514,6 @@ func _process(delta: float) -> void:
 	if shake < 0.25:
 		shake = 0.0
 	camera.offset = Vector2(randf_range(-shake, shake), randf_range(-shake, shake))
+	_sleep_zoom(delta)
 	if Settings.shake:
 		camera.offset += fx.kick

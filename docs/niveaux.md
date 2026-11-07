@@ -229,3 +229,38 @@ suivants ; il faut alors insérer un fragment au même endroit.
   (`element.gd`), avec ses réglages en `@export`, son aperçu dans `_draw()` et ses réglages
   pour le jeu dans `element_data()` (un dictionnaire avec un `"type"`) ; une scène `.tscn` d'un
   seul nœud avec ce script ; puis son cas dans `scripts/main.gd` (`_add_elements`).
+
+## Le mode Ascension
+
+L'Ascension est un mode à part, ouvert depuis l'écran titre (« Ascension »). Le jeu principal
+ne change pas. Ses niveaux sont rangés dans `levels/ascension/`, dans l'ordre de
+`levels/ascension/list.tres`, et ils se peignent exactement comme les autres. Ils ne comptent ni
+dans la partie, ni dans les chapitres, ni dans le journal. Leurs records sont gardés à part, par
+nom de niveau.
+
+La physique y est différente (`scripts/physique/Player.cs`, `AscentProcess`) :
+
+- **pas de dash ni de wall jump** ;
+- au sol, on marche lentement ; **maintenir saut charge le saut** (le fantôme se tasse). La
+  charge plafonne à 1 s, mais le fantôme ne part qu'au relâcher : la visée compte jusque-là. **Gauche et droite comptent en pourcentage de la
+  charge** : tenir droite pendant toute la charge (courte ou longue) donne 100 % d'élan à
+  droite, la moitié du temps 50 %, et tenir gauche retire autant ; sans rien tenir, il saute
+  tout droit. La visée règle l'angle (jusqu'à 60° depuis la verticale, `AscentMaxAngle`) : la
+  force du saut se partage entre la hauteur et le côté. Plus la charge est longue, plus il saute haut (jusqu'à
+  environ 8 cases) ;
+- **en l'air, plus aucun contrôle** ;
+- **un mur renvoie le fantôme** dans l'autre sens, en gardant presque tout son élan ; un plafond le
+  fait retomber ;
+- tomber ne tue pas : on retombe plus bas et il faut tout remonter. Les niveaux doivent donc
+  avoir un **sol tout en bas**. À l'atterrissage, le fantôme **s'écrase au sol** dès 2 cases de chute :
+  plus la chute est haute, plus il s'aplatit et plus il met de temps à se relever (jusqu'à
+  0,9 s, sans pouvoir bouger), avec de la poussière qui gicle (constantes `Splat…`). Une chute de plus de 6 cases secoue l'écran et compte comme
+  une « chute » (affichée avec le temps).
+
+L'option **Debug · trajectoire du saut** (Options) montre pendant la charge un trait dans la
+direction du saut et la courbe qu'il suivrait, sans tenir compte des murs.
+
+Les réglages (hauteur, portée, temps de charge, rebond) sont les constantes `Ascent…` en haut de
+`Player.cs`. Repère pour dessiner : tout droit à pleine charge, le fantôme monte d'environ 8 cases ; à
+60°, il ne monte plus que de 2 cases mais file d'une quinzaine de cases sur le côté. Les pics marchent encore, mais une mort
+ramène au départ `P` : à utiliser avec parcimonie.
