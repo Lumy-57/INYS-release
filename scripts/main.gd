@@ -62,11 +62,11 @@ var level_index := 0
 var ascent := false
 var falls := 0  # grandes chutes du niveau en cours (mode Ascension)
 const BIG_FALL := 6 * TILE
-# Le fantôme endormi (ghost_visual.gd, SLEEP_AT = 13 s d'immobilité) : une seconde plus tard,
+# Le fantôme qui s'endort (ghost_visual.gd) : à partir de SLEEP_ZOOM_AT s d'immobilité,
 # la caméra s'approche doucement de lui, jusqu'à SLEEP_ZOOM ; elle recule vite au réveil
-const SLEEP_ZOOM_AT := 14.0
-const SLEEP_ZOOM := 2.0
-const SLEEP_ZOOM_TIME := 5.0
+const SLEEP_ZOOM_AT := 35
+const SLEEP_ZOOM := 4.0
+const SLEEP_ZOOM_TIME := 20.0
 var world: Node2D
 var level_root: Node2D
 var chapter_intro: CanvasLayer
