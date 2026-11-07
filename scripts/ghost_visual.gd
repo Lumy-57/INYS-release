@@ -2,10 +2,16 @@
 # et l'accessoire choisi dans les options (Settings.look).
 # Animé, il respire (la tête gonfle et se soulève doucement), cligne des yeux
 # à intervalles irréguliers, et regarde un peu là où il va (gaze).
+# Laissé immobile, il regarde autour de lui, puis se tourne vers le joueur avec des points
+# d'interrogation, s'assoupit et finit par s'endormir (des « z » s'envolent).
 extends Node2D
 
 const BREATH := 1.9         # pulsation du souffle, en radians par seconde
 const BLINK := 0.14         # durée d'un clignement
+# Repos (secondes d'immobilité) : il regarde le joueur, s'assoupit, puis dort
+const ASK_AT := 6.0
+const DROWSY_AT := 11.0
+const SLEEP_AT := 13.0
 
 var facing := 1
 var tint := Color.WHITE
@@ -53,6 +59,12 @@ func _update_blink(delta: float) -> void:
 
 # 1 yeux grands ouverts, 0 fermés
 func _eye_open() -> float:
+	if idle >= SLEEP_AT:
+		return 0.0
+	if idle >= DROWSY_AT:
+		# Les paupières tombent, se relèvent un peu, retombent
+		var k := (idle - DROWSY_AT) / (SLEEP_AT - DROWSY_AT)
+		return clampf(0.6 - 0.6 * k + sin(idle * 5.0) * 0.15 * (1.0 - k), 0.0, 1.0)
 	if blink_t < 0.0:
 		return 1.0
 	return absf(blink_t / BLINK * 2.0 - 1.0)
@@ -61,7 +73,9 @@ func _eye_open() -> float:
 # Souffle : de 0 à 1, plus ample et plus lent quand le fantôme se repose
 func _breath() -> float:
 	var deep := clampf((idle - 1.5) / 2.0, 0.0, 1.0)
-	return (sin(t * BREATH * (1.0 - 0.3 * deep)) * 0.5 + 0.5) * (0.6 + 0.6 * deep)
+	# Endormi : un souffle encore plus lent et plus ample
+	var sleep := clampf((idle - DROWSY_AT) / (SLEEP_AT - DROWSY_AT), 0.0, 1.0)
+	return (sin(t * BREATH * (1.0 - 0.3 * deep - 0.25 * sleep)) * 0.5 + 0.5) * (0.6 + 0.6 * deep + 0.4 * sleep)
 
 
 func _draw() -> void:
@@ -83,20 +97,61 @@ func _draw() -> void:
 	draw_colored_polygon(pts, tint)
 
 	var look := _gaze()
-	var ex := 1.5 * facing + look.x
+	# Quand il regarde le joueur, il se tourne vers l'écran : les yeux reviennent au milieu
+	var front := clampf((idle - ASK_AT) * 3.0, 0.0, 1.0) if animated else 0.0
+	var ex := 1.5 * facing * (1.0 - front) + look.x
 	var ey := -5.0 + bob - br * 0.5 + look.y
+	# En dormant, la tête penche un peu
+	if animated and idle >= DROWSY_AT:
+		ey += clampf(idle - DROWSY_AT, 0.0, 1.0) * 1.0
 	var open := _eye_open() if animated else 1.0
 	var h := maxf(3.0 * open, 0.7)
 	var eye := Color(0, 0, 0, tint.a)
 	draw_rect(Rect2(ex - 3.5, ey + (3.0 - h) * 0.5, 2, h), eye)
 	draw_rect(Rect2(ex + 1.5, ey + (3.0 - h) * 0.5, 2, h), eye)
 	_draw_look(Settings.look, bob - br * 0.5)
+	if animated:
+		_draw_idle(bob)
+
+
+# Points d'interrogation tant qu'il regarde le joueur, puis des « z » qui s'envolent
+func _draw_idle(bob: float) -> void:
+	var font := ThemeDB.fallback_font
+	if idle >= ASK_AT and idle < DROWSY_AT:
+		var k := idle - ASK_AT
+		var spots := [Vector2(-7, -13), Vector2(1, -17), Vector2(8, -13)]
+		for i in spots.size():
+			var age := k - 0.45 * i
+			if age <= 0.0:
+				continue
+			# Chaque « ? » apparaît en sautillant, puis flotte doucement
+			var pop := minf(1.0, age * 5.0)
+			var hop := sin(minf(age * 6.0, PI)) * 2.0 + sin(t * 2.5 + i) * 0.8
+			var fade := clampf((DROWSY_AT - idle) / 0.6, 0.0, 1.0)
+			var at: Vector2 = spots[i] + Vector2(0, bob - hop)
+			draw_set_transform(at, 0.0, Vector2.ONE * pop)
+			draw_string(font, Vector2(-2.5, 3), "?", HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(1, 1, 1, tint.a * fade))
+		draw_set_transform(Vector2.ZERO)
+	elif idle >= SLEEP_AT:
+		var k := idle - SLEEP_AT
+		for i in 3:
+			var cycle := fmod(k - 0.8 * i, 2.4)
+			if k - 0.8 * i < 0.0:
+				continue
+			var p := cycle / 2.4
+			var at := Vector2(5 + p * 9 + sin(p * TAU) * 1.5, -9 - p * 14 + bob)
+			var size := int(round(5 + p * 4))
+			var alpha := sin(p * PI) * tint.a
+			draw_string(font, at, "z", HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(1, 1, 1, alpha))
 
 
 # Décalage des yeux : vers la direction du mouvement, ou un coup d'œil au repos
 func _gaze() -> Vector2:
 	var g := gaze
-	if idle > 3.0:
+	if idle >= ASK_AT:
+		# Il regarde le joueur, droit devant, un peu vers le bas
+		g = Vector2(0.0, 0.4)
+	elif idle > 3.0:
 		# Il regarde autour de lui, un côté puis l'autre, en marquant des pauses
 		var phase := fmod(idle - 3.0, 6.0)
 		if phase < 1.5:

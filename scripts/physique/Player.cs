@@ -677,12 +677,24 @@ public partial class Player : CharacterBody2D
 		Visual.Set("facing", Facing);
 		Visual.Set("gaze", Velocity / 180f);
 		float idle = Visual.Get("idle").AsSingle();
-		Visual.Set("idle", Velocity.Length() < 1f && !Dead ? idle + delta : 0f);
+		// Le moindre geste réveille le fantôme (même sans bouger : charger un saut, appuyer contre un mur)
+		bool still = Velocity.Length() < 1f && !Dead && !Charging && splatTimer <= 0f && !AnyInput();
+		Visual.Set("idle", still ? idle + delta : 0f);
 		// Le fantôme pâlit quand son dash est épuisé : la lumière en dit autant
 		bool hasDash = Dashes > 0 || DashTimer > 0f;
 		float targetEnergy = hasDash ? 1.6f : 0.8f;
 		Light.Energy = Mathf.Lerp(Light.Energy, targetEnergy, 1f - Mathf.Exp(-10f * delta));
 		Visual.Set("tint", hasDash ? Colors.White : new Color(0.55f, 0.55f, 0.55f));
+	}
+
+	static readonly string[] WakeActions = { "left", "right", "up", "down", "jump", "dash" };
+
+	static bool AnyInput()
+	{
+		foreach (var action in WakeActions)
+			if (Input.IsActionPressed(action))
+				return true;
+		return false;
 	}
 
 	public void Die()
