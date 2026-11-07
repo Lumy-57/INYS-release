@@ -102,6 +102,45 @@ func _lie_transform() -> Transform2D:
 	return Transform2D(0.0, pivot - Vector2(0, lie)) * turn * Transform2D(0.0, -pivot)
 
 
+func _update_blink(delta: float) -> void:
+	if blink_t >= 0.0:
+		blink_t += delta
+		if blink_t >= BLINK:
+			blink_t = -1.0
+			# Une fois sur cinq, un second clignement juste après
+			if not double_blink and rng.randf() < 0.2:
+				double_blink = true
+				blink_in = 0.12
+			else:
+				double_blink = false
+				blink_in = rng.randf_range(2.2, 5.0)
+		return
+	blink_in -= delta
+	if blink_in <= 0.0:
+		blink_t = 0.0
+
+
+# 1 yeux grands ouverts, 0 fermés
+func _eye_open() -> float:
+	if idle >= SLEEP_AT:
+		return 0.0
+	if idle >= DROWSY_AT:
+		# Les paupières tombent, se relèvent un peu, retombent
+		var k := (idle - DROWSY_AT) / (SLEEP_AT - DROWSY_AT)
+		return clampf(0.6 - 0.6 * k + sin(idle * 5.0) * 0.15 * (1.0 - k), 0.0, 1.0)
+	if blink_t < 0.0:
+		return 1.0
+	return absf(blink_t / BLINK * 2.0 - 1.0)
+
+
+# Souffle : de 0 à 1, plus ample et plus lent quand le fantôme se repose
+func _breath() -> float:
+	var deep := clampf((idle - 1.5) / 2.0, 0.0, 1.0)
+	# Endormi : un souffle encore plus lent et plus ample
+	var sleep := clampf((idle - DROWSY_AT) / (SLEEP_AT - DROWSY_AT), 0.0, 1.0)
+	return (sin(t * BREATH * (1.0 - 0.3 * deep - 0.25 * sleep)) * 0.5 + 0.5) * (0.6 + 0.6 * deep + 0.4 * sleep)
+
+
 func _draw() -> void:
 	var lying := _lie_transform() if animated else Transform2D.IDENTITY
 	draw_set_transform_matrix(lying)
