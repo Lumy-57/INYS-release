@@ -262,5 +262,5 @@ direction du saut et la courbe qu'il suivrait, sans tenir compte des murs.
 
 Les réglages (hauteur, portée, temps de charge, rebond) sont les constantes `Ascent…` en haut de
 `Player.cs`. Repère pour dessiner : tout droit à pleine charge, le fantôme monte d'environ 8 cases ; à
-60°, il ne monte plus que de 2 cases mais file d'une dizaine de cases sur le côté. Les pics marchent encore, mais une mort
+60°, il ne monte plus que de 2 cases mais file d'une quinzaine de cases sur le côté. Les pics marchent encore, mais une mort
 ramène au départ `P` : à utiliser avec parcimonie.
