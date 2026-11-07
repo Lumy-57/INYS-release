@@ -267,8 +267,8 @@ ramène au départ `P` : à utiliser avec parcimonie.
 
 ### Le Phare
 
-L'Ascension tient en un seul grand niveau, `levels/ascension/phare.tscn` (30 × 160 cases, une
-dizaine d'écrans), en cinq zones du bas vers le haut :
+L'Ascension tient en un seul grand niveau, `levels/ascension/phare.tscn` (30 × 280 cases, une
+quinzaine d'écrans), en dix zones du bas vers le haut, de plus en plus dures :
 
 1. **Les racines** (roche `r`) : sol bosselé, corniches dans les parois, un surplomb ;
 2. **La tour** (pierre taillée `t`) : paliers en quinconce, une cheminée étroite où l'on rebondit
@@ -279,4 +279,16 @@ dizaine d'écrans), en cinq zones du bas vers le haut :
 4. **Le vent** : deux éléments Vent, une rafale vers la gauche puis une vers la droite, qui
    dévient le fantôme en l'air (`AscentWindAccel`) ;
 5. **Le givre** (`g`) : les corniches glissent, le fantôme continue sur son élan en atterrissant ;
-   le sommet est en pierre, la sortie y attend.
+   au-dessus, la tour continue :
+6. **Les ressorts** : un ressort sur l'ancien sommet, puis des **pierres fissurées** qui tombent
+   vite : pas le temps de charger un grand saut dessus, il faut enchaîner de petits sauts ;
+7. **L'horloge** : des **blocs rythmés** en alternance, à prendre au bon temps (la charge dure
+   jusqu'à 1 s, le bloc reste 1,2 s) ;
+8. **Le carillon** : la **cloche** est sur la corniche de gauche ; une fois sonnée, la marche du
+   bas disparaît et les marches qui montent apparaissent ;
+9. **La clé** : une **trappe** (porte) ferme le haut de la salle ; la clé attend sur une
+   corniche à gauche. Tomber ne la fait pas perdre ;
+10. **La lanterne** : une bulle **sans pesanteur** (le fantôme flotte sur son élan), du givre,
+    et la sortie tout en haut à gauche.
+
+Sur le **givre**, le fantôme garde son élan en atterrissant, même écrasé, et pendant la charge.

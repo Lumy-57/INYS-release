@@ -338,7 +338,8 @@ public partial class Player : CharacterBody2D
 		}
 		if (onFloor && splatTimer > 0f)
 		{
-			v.X = 0f;
+			// Écrasé : on ne bouge plus, sauf sur le givre où l'on continue de glisser à plat
+			v.X = OnIce() ? Mathf.MoveToward(v.X, 0f, IceDecel * delta) : 0f;
 		}
 		else if (onFloor)
 		{
@@ -358,7 +359,8 @@ public partial class Player : CharacterBody2D
 				chargeTime += delta;
 				aimTime += Mathf.Sign(ix) * delta;
 				Aim = Mathf.Clamp(aimTime / chargeTime, -1f, 1f);
-				v.X = 0f;
+				// Sur le givre, on continue de glisser pendant la charge
+				v.X = OnIce() ? Mathf.MoveToward(v.X, 0f, IceDecel * delta) : 0f;
 				if (Aim != 0f)
 					Facing = Mathf.Sign(Aim);
 				Visual.Scale = new Vector2(1f + 0.3f * Charge, 1f - 0.35f * Charge);
@@ -394,6 +396,9 @@ public partial class Player : CharacterBody2D
 			float speed = Mathf.Max(0f, v.Dot(down)) + Gravity * down.Y * delta;
 			v = down * Mathf.Min(speed, AscentSlideMax) - slopeNormal * 20f;
 		}
+		else if (!onFloor && InZeroG())
+			// Zéro gravité : on flotte sur son élan, qui s'éteint doucement
+			v.Y = Mathf.MoveToward(v.Y, 0f, zeroGDrag * delta);
 		else
 			v.Y = Mathf.MoveToward(v.Y, AscentMaxFall, Gravity * delta);
 		if (!onFloor)
