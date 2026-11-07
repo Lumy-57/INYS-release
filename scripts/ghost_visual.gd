@@ -12,6 +12,8 @@ const BLINK := 0.14         # durée d'un clignement
 const ASK_AT := 6.0
 const DROWSY_AT := 11.0
 const SLEEP_AT := 13.0
+const LIE_AT := 19.0      # bien endormi, il bascule et se couche sur le côté
+const LIE_TIME := 0.55    # durée de la chute, avec un petit rebond à la fin
 
 var facing := 1
 var tint := Color.WHITE
@@ -23,6 +25,7 @@ var gaze := Vector2.ZERO
 var aim := Vector2.ZERO
 # Temps passé immobile : au repos, le souffle s'approfondit et le regard flâne
 var idle := 0.0
+var lie := 0.0  # avancée du coucher, de 0 (debout) à 1 (couché)
 var blink_in := 0.0
 var blink_t := -1.0
 var double_blink := false
@@ -38,7 +41,25 @@ func _process(delta: float) -> void:
 	if animated:
 		t += delta
 		_update_blink(delta)
+		# Il se couche lentement, mais se relève d'un bond au réveil
+		lie = move_toward(lie, 1.0 if idle >= LIE_AT else 0.0, delta / (LIE_TIME if idle >= LIE_AT else 0.15))
 		queue_redraw()
+
+
+# Angle et décalage du corps couché : il bascule vers l'avant (côté où il regarde), rebondit un peu
+# en touchant le sol, et reste posé sur le flanc
+func _lie_transform() -> Transform2D:
+	if lie <= 0.0:
+		return Transform2D.IDENTITY
+	var k := lie
+	# Chute accélérée, puis un petit rebond à l'arrivée (ease out back)
+	var c := 1.6
+	var e := 1.0 + (c + 1.0) * pow(k - 1.0, 3) + c * pow(k - 1.0, 2)
+	var side := float(facing)
+	var angle := side * PI * 0.5 * e
+	# Couché, il repose sur le sol (y = 8) et reste centré sur sa case
+	var shift := Vector2(-side * 2.0 * e, 1.5 * e)
+	return Transform2D(angle, shift)
 
 
 func _update_blink(delta: float) -> void:
@@ -81,7 +102,10 @@ func _breath() -> float:
 
 
 func _draw() -> void:
-	var bob := sin(t * 3.0) * 0.8 if animated else 0.0
+	var lying := _lie_transform() if animated else Transform2D.IDENTITY
+	draw_set_transform_matrix(lying)
+	# Couché, il ne flotte plus de haut en bas
+	var bob := sin(t * 3.0) * 0.8 * (1.0 - lie) if animated else 0.0
 	var br := _breath() if animated else 0.0
 	# La tête s'élargit et se soulève à l'inspiration ; le bas reste posé
 	var rx := 7.0 + br * 0.45
@@ -112,6 +136,7 @@ func _draw() -> void:
 	draw_rect(Rect2(ex - 3.5, ey + (3.0 - h) * 0.5, 2, h), eye)
 	draw_rect(Rect2(ex + 1.5, ey + (3.0 - h) * 0.5, 2, h), eye)
 	_draw_look(Settings.look, bob - br * 0.5)
+	draw_set_transform_matrix(Transform2D.IDENTITY)
 	if animated:
 		_draw_idle(bob)
 
@@ -141,7 +166,9 @@ func _draw_idle(bob: float) -> void:
 			if k - 0.8 * i < 0.0:
 				continue
 			var p := cycle / 2.4
-			var at := Vector2(5 + p * 9 + sin(p * TAU) * 1.5, -9 - p * 14 + bob)
+			# Les « z » partent de sa tête, qu'il soit assis ou couché sur le côté
+			var head := Vector2(5, -9).lerp(Vector2(facing * 9 - 2, -2), lie)
+			var at := head + Vector2(p * 9 + sin(p * TAU) * 1.5, -p * 14 + bob)
 			var size := int(round(5 + p * 4))
 			var alpha := sin(p * PI) * tint.a
 			draw_string(font, at, "z", HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(1, 1, 1, alpha))
