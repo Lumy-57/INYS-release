@@ -62,6 +62,9 @@ public partial class Player : CharacterBody2D
 	public const float AscentBounce = 0.85f;
 	// Pentes : en Ascension, une pente raide (45°) n'est pas un sol, on glisse dessus jusqu'en bas
 	public const float AscentFloorAngle = 30f;
+	// En glissant, on prend de la vitesse le long de la pente (jusqu'à AscentSlideMax) et on la
+	// garde en la quittant : le fantôme est projeté dans le prolongement de la pente
+	public const float AscentSlideMax = 420f;
 	// Vent de côté, en l'air seulement (au sol, on marche comme on veut)
 	public const float AscentWindAccel = 140f;
 	// Écrasement à l'atterrissage : à partir de 2 cases de chute, à fond vers 22 cases ; le fantôme
@@ -106,6 +109,7 @@ public partial class Player : CharacterBody2D
 	float splatTimer;
 	float splatHold;
 	float airTop;
+	Vector2 slopeNormal;  // pente raide touchée à l'image d'avant (zéro sinon)
 	// Plateforme mobile sous le fantôme (Mover.cs), sinon null
 	public Mover FloorBody;
 	public Vector2 FloorMotion = Vector2.Zero;  // vitesse de cette plateforme, px/s
@@ -380,7 +384,18 @@ public partial class Player : CharacterBody2D
 		}
 		else
 			Charging = false;
-		v.Y = Mathf.MoveToward(v.Y, AscentMaxFall, Gravity * delta);
+		if (!onFloor && slopeNormal != Vector2.Zero)
+		{
+			// Sur une pente raide : on file le long de la pente en accélérant (la part de la
+			// gravité dans son sens), collé à elle
+			var down = new Vector2(-slopeNormal.Y, slopeNormal.X);
+			if (down.Y < 0f)
+				down = -down;
+			float speed = Mathf.Max(0f, v.Dot(down)) + Gravity * down.Y * delta;
+			v = down * Mathf.Min(speed, AscentSlideMax) - slopeNormal * 20f;
+		}
+		else
+			v.Y = Mathf.MoveToward(v.Y, AscentMaxFall, Gravity * delta);
 		if (!onFloor)
 			v.X += Wind().X * AscentWindAccel * delta;
 		Velocity = v;
@@ -388,6 +403,21 @@ public partial class Player : CharacterBody2D
 		float fall = Velocity.Y;
 		float pushX = Velocity.X;
 		MoveAndSlide();
+		// Pente raide touchée (ni sol ni mur) : on glissera dessus à l'image suivante. En la
+		// quittant, la vitesse le long de la pente reste : le fantôme est projeté avec son élan
+		slopeNormal = Vector2.Zero;
+		if (!IsOnFloor())
+		{
+			for (int i = 0; i < GetSlideCollisionCount(); i++)
+			{
+				var n = GetSlideCollision(i).GetNormal();
+				if (n.Y < -0.3f && Mathf.Abs(n.X) > 0.3f && Mathf.Abs(n.X) <= 0.9f)
+				{
+					slopeNormal = n;
+					break;
+				}
+			}
+		}
 		// Rebond : le mur renvoie le fantôme, en gardant presque tout son élan
 		if (!IsOnFloor() && pushX != 0f)
 		{
@@ -780,6 +810,7 @@ public partial class Player : CharacterBody2D
 		Charging = false;
 		Charge = 0f;
 		Aim = 0f;
+		slopeNormal = Vector2.Zero;
 		LastDrop = 0f;
 		Splat = 0f;
 		splatTimer = 0f;

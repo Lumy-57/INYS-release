@@ -274,7 +274,8 @@ dizaine d'écrans), en cinq zones du bas vers le haut :
 2. **La tour** (pierre taillée `t`) : paliers en quinconce, une cheminée étroite où l'on rebondit
    d'une paroi à l'autre, un plancher troué qui renvoie tout en bas ;
 3. **Les éboulis** : des **pentes raides** (`j`, `k`). En Ascension, une pente à 45° n'est pas un
-   sol : on glisse dessus jusqu'en bas (`AscentFloorAngle`), il faut viser les replats ;
+   sol : on y glisse en prenant de la vitesse (`AscentFloorAngle`, `AscentSlideMax`), et au bout
+   on est projeté dans le prolongement de la pente : il faut viser les replats ;
 4. **Le vent** : deux éléments Vent, une rafale vers la gauche puis une vers la droite, qui
    dévient le fantôme en l'air (`AscentWindAccel`) ;
 5. **Le givre** (`g`) : les corniches glissent, le fantôme continue sur son élan en atterrissant ;
