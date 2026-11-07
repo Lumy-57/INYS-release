@@ -264,3 +264,18 @@ Les réglages (hauteur, portée, temps de charge, rebond) sont les constantes `A
 `Player.cs`. Repère pour dessiner : tout droit à pleine charge, le fantôme monte d'environ 8 cases ; à
 60°, il ne monte plus que de 2 cases mais file d'une quinzaine de cases sur le côté. Les pics marchent encore, mais une mort
 ramène au départ `P` : à utiliser avec parcimonie.
+
+### Le Phare
+
+L'Ascension tient en un seul grand niveau, `levels/ascension/phare.tscn` (30 × 160 cases, une
+dizaine d'écrans), en cinq zones du bas vers le haut :
+
+1. **Les racines** (roche `r`) : sol bosselé, corniches dans les parois, un surplomb ;
+2. **La tour** (pierre taillée `t`) : paliers en quinconce, une cheminée étroite où l'on rebondit
+   d'une paroi à l'autre, un plancher troué qui renvoie tout en bas ;
+3. **Les éboulis** : des **pentes raides** (`j`, `k`). En Ascension, une pente à 45° n'est pas un
+   sol : on glisse dessus jusqu'en bas (`AscentFloorAngle`), il faut viser les replats ;
+4. **Le vent** : deux éléments Vent, une rafale vers la gauche puis une vers la droite, qui
+   dévient le fantôme en l'air (`AscentWindAccel`) ;
+5. **Le givre** (`g`) : les corniches glissent, le fantôme continue sur son élan en atterrissant ;
+   le sommet est en pierre, la sortie y attend.

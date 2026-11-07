@@ -60,6 +60,10 @@ public partial class Player : CharacterBody2D
 	public const float AscentMaxAngle = 60f;
 	public const float AscentMaxFall = 400f;
 	public const float AscentBounce = 0.85f;
+	// Pentes : en Ascension, une pente raide (45°) n'est pas un sol, on glisse dessus jusqu'en bas
+	public const float AscentFloorAngle = 30f;
+	// Vent de côté, en l'air seulement (au sol, on marche comme on veut)
+	public const float AscentWindAccel = 140f;
 	// Écrasement à l'atterrissage : à partir de 2 cases de chute, à fond vers 22 cases ; le fantôme
 	// reste aplati (et immobile) d'autant plus longtemps que la chute était haute
 	public const float SplatFrom = 32f;
@@ -197,6 +201,7 @@ public partial class Player : CharacterBody2D
 			AscentProcess(delta);
 			return;
 		}
+		FloorMaxAngle = Mathf.DegToRad(46f);
 
 		float ix = AxisX();
 		float iy = Input.GetAxis("up", "down");
@@ -316,6 +321,7 @@ public partial class Player : CharacterBody2D
 	// l'angle de la visée. En l'air, plus aucun contrôle. Toucher un mur renvoie dans l'autre sens.
 	void AscentProcess(float delta)
 	{
+		FloorMaxAngle = Mathf.DegToRad(AscentFloorAngle);
 		float ix = AxisX();
 		bool onFloor = IsOnFloor();
 		Vector2 v = Velocity;
@@ -375,6 +381,8 @@ public partial class Player : CharacterBody2D
 		else
 			Charging = false;
 		v.Y = Mathf.MoveToward(v.Y, AscentMaxFall, Gravity * delta);
+		if (!onFloor)
+			v.X += Wind().X * AscentWindAccel * delta;
 		Velocity = v;
 
 		float fall = Velocity.Y;
