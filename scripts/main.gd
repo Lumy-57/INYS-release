@@ -62,6 +62,11 @@ var level_index := 0
 var ascent := false
 var falls := 0  # grandes chutes du niveau en cours (mode Ascension)
 const BIG_FALL := 6 * TILE
+# Le fantôme endormi (ghost_visual.gd, SLEEP_AT = 13 s d'immobilité) : une seconde plus tard,
+# la caméra s'approche doucement de lui, jusqu'à SLEEP_ZOOM ; elle recule vite au réveil
+const SLEEP_ZOOM_AT := 14.0
+const SLEEP_ZOOM := 2.0
+const SLEEP_ZOOM_TIME := 5.0
 var world: Node2D
 var level_root: Node2D
 var chapter_intro: CanvasLayer
@@ -593,6 +598,7 @@ func _load_level(index: int) -> void:
 	camera.limit_top = 0
 	camera.limit_right = int(room_size.x)
 	camera.limit_bottom = int(room_size.y)
+	camera.zoom = Vector2.ONE
 	player.Respawn(respawn_point)
 	camera.reset_smoothing()
 	hint_orb.set_hints(hints)
@@ -1421,6 +1427,19 @@ func _menu_input() -> void:
 	_draw_menu()
 
 
+# La caméra s'approche du fantôme endormi (pas en Miroir : elle y suit les deux fantômes)
+func _sleep_zoom(delta: float) -> void:
+	var idle: float = player.Visual.get("idle")
+	var target := 1.0
+	if not reflection and idle > SLEEP_ZOOM_AT:
+		var k := clampf((idle - SLEEP_ZOOM_AT) / SLEEP_ZOOM_TIME, 0.0, 1.0)
+		target = lerpf(1.0, SLEEP_ZOOM, k * k * (3.0 - 2.0 * k))
+	var z := camera.zoom.x
+	# On s'approche au rythme du sommeil ; au réveil, la caméra recule d'un coup
+	z = target if target > z else lerpf(z, target, 1.0 - exp(-8.0 * delta))
+	camera.zoom = Vector2(z, z)
+
+
 func _menu_levels() -> int:
 	return LevelData.ASCENT.size() if ascent else save.playable_levels()
 
@@ -1490,5 +1509,6 @@ func _process(delta: float) -> void:
 	if shake < 0.25:
 		shake = 0.0
 	camera.offset = Vector2(randf_range(-shake, shake), randf_range(-shake, shake))
+	_sleep_zoom(delta)
 	if Settings.shake:
 		camera.offset += fx.kick
