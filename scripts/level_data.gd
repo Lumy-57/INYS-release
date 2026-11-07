@@ -16,6 +16,7 @@
 #  e sortie secrète : une seule par chapitre, elle ouvre la face B du chapitre
 #  % fausse paroi : a l'air d'un mur, mais on passe au travers (cache les sorties secrètes)
 #  r t g murs taillés (roche, pierre taillée, givre) : solides comme #, coins arrondis ou biseautés
+#  p pont : une planche qu'on traverse par en dessous (collision à sens unique)
 #  j k u n pentes raides, c d f h pentes douces au sol, l m o s au plafond (scripts/slopes.gd)
 # Vent, zéro gravité, blocs de lumière et d'ombre, pierres fissurées, ressorts, plateformes
 # mobiles, blocs de carillon, blocs rythmés, yeux, marée et ombres poursuivantes sont des éléments.

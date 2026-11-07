@@ -13,7 +13,7 @@ const COLS := 8  # colonnes de levels/tiles.png
 # Caractère de chaque tuile de la palette, dans l'ordre de levels/tiles.png (tools/make_tiles.py).
 # Les icônes - L O X | 1 2 a b M W S ~ H Y y _ ( ) 0 ne sont plus des tuiles (elles sont devenues
 # des éléments réglables, levels/elements/) : elles restent dans l'image pour ne rien décaler.
-const CHARS := "#%=^v<>-" + "LOX|12ab" + "iMWSB~HR" + "PCDEe*Yy" + "_()0"
+const CHARS := "#%=^v<>-" + "LOX|12ab" + "iMWSB~HR" + "PCDEe*Yy" + "_()0p"
 # Source 1 de la palette (levels/murs.png, tools/make_murs.py) : les murs taillés, une rangée par
 # style, peints avec les terrains pour que l'éditeur choisisse les bords tout seul
 const SHAPED := "rtg"

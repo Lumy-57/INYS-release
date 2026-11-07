@@ -64,6 +64,9 @@ règles n'ont pas changé :
 - **Sortie secrète `e`** : une par chapitre, cachée sous des fausses parois `%`. Elle ouvre la
   face B du chapitre.
 - **Étincelle `*`** : une par niveau ; elle ouvre le fragment du journal de ce niveau.
+- **Pont `p`** : une planche fine en haut de la case. Le fantôme tient dessus, mais la
+  traverse en sautant par en dessous (et passe à travers de côté). Les cases de pont voisines
+  sur une rangée font une seule planche. Il ne fait pas d'ombre.
 ### Les murs taillés : roche, pierre taillée, givre
 
 Pour casser l'effet « cubes », trois murs de plus, toujours en gris et blanc. Ils sont solides

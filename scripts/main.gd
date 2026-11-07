@@ -407,6 +407,7 @@ func _load_level(index: int) -> void:
 	var reflect_start := Vector2.INF
 	var glass_cells := []
 	var hidden_cells := []
+	var bridge_cells := {}
 	var fake := FakeWall.new()
 	var body := StaticBody2D.new()
 	level_root.add_child(body)
@@ -512,6 +513,8 @@ func _load_level(index: int) -> void:
 						glass_cells.append(cell)
 					"i":
 						hidden_cells.append(cell)
+					"p":
+						bridge_cells[cell] = true
 					"P":
 						respawn_point = base + Vector2(8, 16 - 7)
 					"C":
@@ -544,6 +547,7 @@ func _load_level(index: int) -> void:
 						sp.collected.connect(_on_spark)
 						level_root.add_child(sp)
 						sparks.append(sp)
+	_add_bridges(bridge_cells, drawer)
 	level_root.add_child(drawer)
 	level_root.move_child(drawer, 0)
 	var has_fake := not fake.cells.is_empty()
@@ -612,6 +616,29 @@ func _load_level(index: int) -> void:
 	tw.tween_property(title_label, "modulate:a", 1.0, 0.4)
 	tw.tween_interval(1.6)
 	tw.tween_property(title_label, "modulate:a", 0.0, 0.8)
+
+
+# Ponts (tuile p) : une planche par suite de cases, qui porte le fantôme par-dessus et le laisse
+# passer par en dessous (collision à sens unique), sans faire d'ombre
+func _add_bridges(cells: Dictionary, drawer) -> void:
+	if cells.is_empty():
+		return
+	var body := StaticBody2D.new()
+	level_root.add_child(body)
+	for cell in cells:
+		if cells.has(cell - Vector2i(1, 0)):
+			continue
+		var length := 1
+		while cells.has(cell + Vector2i(length, 0)):
+			length += 1
+		var cs := CollisionShape2D.new()
+		var rect := RectangleShape2D.new()
+		rect.size = Vector2(length * TILE, 4)
+		cs.shape = rect
+		cs.one_way_collision = true
+		cs.position = Vector2(cell) * TILE + Vector2(length * TILE * 0.5, 2)
+		body.add_child(cs)
+		drawer.bridges.append([cell, length])
 
 
 # « 12 · Clocher », ou « Face B · … » pour une face B
