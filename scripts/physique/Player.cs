@@ -359,8 +359,8 @@ public partial class Player : CharacterBody2D
 				chargeTime += delta;
 				aimTime += Mathf.Sign(ix) * delta;
 				Aim = Mathf.Clamp(aimTime / chargeTime, -1f, 1f);
-				// Sur le givre, on continue de glisser pendant la charge
-				v.X = OnIce() ? Mathf.MoveToward(v.X, 0f, IceDecel * delta) : 0f;
+				// Charger cale le fantôme, même sur le givre
+				v.X = 0f;
 				if (Aim != 0f)
 					Facing = Mathf.Sign(Aim);
 				Visual.Scale = new Vector2(1f + 0.3f * Charge, 1f - 0.35f * Charge);

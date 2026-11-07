@@ -291,4 +291,5 @@ quinzaine d'écrans), en dix zones du bas vers le haut, de plus en plus dures :
 10. **La lanterne** : une bulle **sans pesanteur** (le fantôme flotte sur son élan), du givre,
     et la sortie tout en haut à gauche.
 
-Sur le **givre**, le fantôme garde son élan en atterrissant, même écrasé, et pendant la charge.
+Sur le **givre**, le fantôme garde son élan en atterrissant, même écrasé ; dès qu'il charge un
+saut, il se cale et ne glisse plus.
