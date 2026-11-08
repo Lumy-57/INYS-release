@@ -214,6 +214,13 @@ Pour partir d'ailleurs que du départ `P` (utile en haut du Phare) : ajoute sous
 au-dessus d'un sol). Il ne sert qu'à F6 : le jeu normal l'ignore, tu peux le laisser dans la scène.
 Les temps faits en test ne comptent pas dans les records.
 
+**Rechargement à chaud** : tant que le jeu tourne depuis l'éditeur (F5 ou F6), sauvegarde la
+scène du niveau en cours (**Ctrl+S**) et le jeu le reconstruit dans la seconde, sans s'arrêter :
+le fantôme reste où il est, avec son élan, et le chrono continue. On peut donc peindre une
+corniche, sauvegarder, et la voir apparaître sous le fantôme. Les éléments (blocs rythmés,
+ressorts…) repartent de zéro. Pour voir le jeu dans l'éditeur plutôt que dans une fenêtre à part,
+utilise l'onglet **Jeu** en haut de l'éditeur. Dans un jeu exporté, rien de tout ça n'est actif.
+
 ## Ajouter un niveau
 
 1. Dans le dock Système de fichiers, duplique `levels/modele.tscn` (une salle d'un écran avec

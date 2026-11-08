@@ -62,6 +62,12 @@ var level_index := 0
 var ascent := false
 # Niveau lancé depuis l'éditeur (F6 sur sa scène, voir levels/level.gd) : pas de records
 var testing := false
+# Rechargement à chaud (jeu lancé depuis l'éditeur) : la scène du niveau en cours et sa date
+# de modification ; sauvegarder la scène dans l'éditeur reconstruit le niveau sans s'arrêter
+const HOT_RELOAD_EVERY := 0.4
+var hot_path := ""
+var hot_time := 0
+var hot_wait := 0.0
 var falls := 0  # grandes chutes du niveau en cours (mode Ascension)
 const BIG_FALL := 6 * TILE
 # Le fantôme qui s'endort (ghost_visual.gd) : à partir de SLEEP_ZOOM_AT s d'immobilité,
@@ -377,6 +383,8 @@ func _load_level(index: int) -> void:
 	player.Ascent = ascent
 
 	var data: Dictionary = _level_data(index)
+	hot_path = _level_path(index) if OS.has_feature("editor") else ""
+	hot_time = FileAccess.get_modified_time(hot_path) if hot_path != "" else 0
 	ascent_screens = data.get("screens", [])
 	ascent_auto_zoom = data.get("screen_zoom", 0.8)
 	ascent_zoom = ascent_auto_zoom
@@ -1333,6 +1341,54 @@ func _on_title_start(level: int, from_start: bool) -> void:
 		busy = false
 
 
+# Chemin de la scène d'un niveau (res://levels/…tscn), dans sa liste
+func _level_path(index: int) -> String:
+	var list: Resource = LevelData.ASCENT_LIST if ascent else LevelData.LIST
+	return list.levels[index].resource_path if index < list.levels.size() else ""
+
+
+# Jeu lancé depuis l'éditeur : quand la scène du niveau en cours est sauvegardée (Ctrl+S), on la
+# relit et on reconstruit le niveau, en gardant le fantôme où il est, avec son élan, et le chrono
+func _hot_reload_check(delta: float) -> void:
+	if hot_path == "" or busy or finished or paused or on_title:
+		return
+	hot_wait -= delta
+	if hot_wait > 0.0:
+		return
+	hot_wait = HOT_RELOAD_EVERY
+	var t := FileAccess.get_modified_time(hot_path)
+	if t == hot_time:
+		return
+	hot_time = t
+	var scene := ResourceLoader.load(hot_path, "", ResourceLoader.CACHE_MODE_REPLACE) as PackedScene
+	if scene == null:
+		return
+	var level = scene.instantiate()
+	var data: Dictionary = level.to_data()
+	level.free()
+	var levels: Array = LevelData.ASCENT if ascent else LevelData.LEVELS
+	levels[level_index] = data
+	var pos: Vector2 = player.global_position
+	var vel: Vector2 = player.velocity
+	var was_dead: bool = player.Dead
+	var keep_respawn := respawn_point
+	var keep := [level_time, elapsed, falls, deaths, level_deaths]
+	_load_level(level_index)
+	level_time = keep[0]
+	elapsed = keep[1]
+	falls = keep[2]
+	deaths = keep[3]
+	level_deaths = keep[4]
+	respawn_point = keep_respawn
+	if not was_dead:
+		player.Respawn(pos)
+		player.velocity = vel
+	if ascent:
+		_ascent_screen_update()
+	camera.reset_smoothing()
+	print("Niveau rechargé : ", hot_path)
+
+
 # Scène de niveau lancée seule depuis l'éditeur (F6) : on saute l'écran titre et on joue ce
 # niveau tout de suite, depuis le nœud « DepartTest » s'il y en a un
 func _start_test() -> void:
@@ -1644,6 +1700,7 @@ func _process(delta: float) -> void:
 		shake = 0.0
 	camera.offset = Vector2(randf_range(-shake, shake), randf_range(-shake, shake))
 	_sleep_zoom(delta)
+	_hot_reload_check(delta)
 	if ascent and camera.get_parent() == cam_follow:
 		_ascent_screen_update()
 	if Settings.shake:
