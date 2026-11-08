@@ -1,12 +1,12 @@
-[gd_scene format=4]
+[gd_scene format=4 uid="uid://ccnpt3ckatmfo"]
 
-[ext_resource type="Script" path="res://levels/level.gd" id="1_52nx2"]
-[ext_resource type="TileSet" path="res://levels/tiles.tres" id="2_occbr"]
+[ext_resource type="Script" uid="uid://cyt4rquponiwn" path="res://levels/level.gd" id="1_52nx2"]
+[ext_resource type="TileSet" uid="uid://d3nnj8phlsnhn" path="res://levels/tiles.tres" id="2_occbr"]
 [ext_resource type="PackedScene" path="res://levels/hint.tscn" id="3_a6pvx"]
-[ext_resource type="PackedScene" path="res://levels/elements/vent.tscn" id="el_vent"]
-[ext_resource type="PackedScene" path="res://levels/elements/pierre_fissuree.tscn" id="el_pierre_fissuree"]
 [ext_resource type="PackedScene" path="res://levels/elements/bloc_rythme.tscn" id="el_bloc_rythme"]
 [ext_resource type="PackedScene" path="res://levels/elements/maree.tscn" id="el_maree"]
+[ext_resource type="PackedScene" path="res://levels/elements/pierre_fissuree.tscn" id="el_pierre_fissuree"]
+[ext_resource type="PackedScene" path="res://levels/elements/vent.tscn" id="el_vent"]
 
 [node name="Niveau" type="Node2D" unique_id=198567379]
 script = ExtResource("1_52nx2")
@@ -41,31 +41,31 @@ size = Vector2i(3, 1)
 
 [node name="BlocRythme" parent="Éléments" unique_id=1309927030 instance=ExtResource("el_bloc_rythme")]
 position = Vector2(240, 112)
-size = Vector2i(3, 1)
 
 [node name="BlocRythme2" parent="Éléments" unique_id=1472996601 instance=ExtResource("el_bloc_rythme")]
 position = Vector2(288, 304)
-size = Vector2i(3, 1)
 
 [node name="BlocRythme3" parent="Éléments" unique_id=1800177376 instance=ExtResource("el_bloc_rythme")]
 position = Vector2(176, 64)
-size = Vector2i(3, 1)
 temps = 1
 
 [node name="BlocRythme4" parent="Éléments" unique_id=1268463520 instance=ExtResource("el_bloc_rythme")]
 position = Vector2(256, 208)
-size = Vector2i(3, 1)
 temps = 1
 
 [node name="Maree" parent="Éléments" unique_id=747344828 instance=ExtResource("el_maree")]
 position = Vector2(0, 1184)
+vitesse = 52.0
+portee = 108.0
+rattrapage = 2.1
+sous_bougie = 78.0
 
 [node name="Indices" type="Node2D" parent="." unique_id=1671584334]
 
-[node name="Indice" type="Node2D" parent="Indices" unique_id=1074578526 instance=ExtResource("3_a6pvx")]
+[node name="Indice" parent="Indices" unique_id=1074578526 instance=ExtResource("3_a6pvx")]
 position = Vector2(216, 1064)
 text = "Les ténèbres montent"
 
-[node name="Indice2" type="Node2D" parent="Indices" unique_id=1396622063 instance=ExtResource("3_a6pvx")]
+[node name="Indice2" parent="Indices" unique_id=1396622063 instance=ExtResource("3_a6pvx")]
 position = Vector2(216, 1080)
 text = "Grimpe !"

@@ -64,6 +64,9 @@ règles n'ont pas changé :
 - **Sortie secrète `e`** : une par chapitre, cachée sous des fausses parois `%`. Elle ouvre la
   face B du chapitre.
 - **Étincelle `*`** : une par niveau ; elle ouvre le fragment du journal de ce niveau.
+- **Pont `p`** : une planche fine en haut de la case. Le fantôme tient dessus, mais la
+  traverse en sautant par en dessous (et passe à travers de côté). Les cases de pont voisines
+  sur une rangée font une seule planche. Il ne fait pas d'ombre.
 ### Les murs taillés : roche, pierre taillée, givre
 
 Pour casser l'effet « cubes », trois murs de plus, toujours en gris et blanc. Ils sont solides
@@ -229,3 +232,67 @@ suivants ; il faut alors insérer un fragment au même endroit.
   (`element.gd`), avec ses réglages en `@export`, son aperçu dans `_draw()` et ses réglages
   pour le jeu dans `element_data()` (un dictionnaire avec un `"type"`) ; une scène `.tscn` d'un
   seul nœud avec ce script ; puis son cas dans `scripts/main.gd` (`_add_elements`).
+
+## Le mode Ascension
+
+L'Ascension est un mode à part, ouvert depuis l'écran titre (« Ascension »). Le jeu principal
+ne change pas. Ses niveaux sont rangés dans `levels/ascension/`, dans l'ordre de
+`levels/ascension/list.tres`, et ils se peignent exactement comme les autres. Ils ne comptent ni
+dans la partie, ni dans les chapitres, ni dans le journal. Leurs records sont gardés à part, par
+nom de niveau.
+
+La physique y est différente (`scripts/physique/Player.cs`, `AscentProcess`) :
+
+- **pas de dash ni de wall jump** ;
+- au sol, on marche lentement ; **maintenir saut charge le saut** (le fantôme se tasse). La
+  charge plafonne à 1 s, mais le fantôme ne part qu'au relâcher : la visée compte jusque-là. **Gauche et droite comptent en pourcentage de la
+  charge** : tenir droite pendant toute la charge (courte ou longue) donne 100 % d'élan à
+  droite, la moitié du temps 50 %, et tenir gauche retire autant ; sans rien tenir, il saute
+  tout droit. La visée règle l'angle (jusqu'à 60° depuis la verticale, `AscentMaxAngle`) : la
+  force du saut se partage entre la hauteur et le côté. Plus la charge est longue, plus il saute haut (jusqu'à
+  environ 8 cases) ;
+- **en l'air, plus aucun contrôle** ;
+- **un mur renvoie le fantôme** dans l'autre sens, en gardant presque tout son élan ; un plafond le
+  fait retomber ;
+- tomber ne tue pas : on retombe plus bas et il faut tout remonter. Les niveaux doivent donc
+  avoir un **sol tout en bas**. À l'atterrissage, le fantôme **s'écrase au sol** dès 2 cases de chute :
+  plus la chute est haute, plus il s'aplatit et plus il met de temps à se relever (jusqu'à
+  0,9 s, sans pouvoir bouger), avec de la poussière qui gicle (constantes `Splat…`). Une chute de plus de 6 cases secoue l'écran et compte comme
+  une « chute » (affichée avec le temps).
+
+L'option **Debug · trajectoire du saut** (Options) montre pendant la charge un trait dans la
+direction du saut et la courbe qu'il suivrait, sans tenir compte des murs.
+
+Les réglages (hauteur, portée, temps de charge, rebond) sont les constantes `Ascent…` en haut de
+`Player.cs`. Repère pour dessiner : tout droit à pleine charge, le fantôme monte d'environ 8 cases ; à
+60°, il ne monte plus que de 2 cases mais file d'une quinzaine de cases sur le côté. Les pics marchent encore, mais une mort
+ramène au départ `P` : à utiliser avec parcimonie.
+
+### Le Phare
+
+L'Ascension tient en un seul grand niveau, `levels/ascension/phare.tscn` (30 × 280 cases, une
+quinzaine d'écrans), en dix zones du bas vers le haut, de plus en plus dures :
+
+1. **Les racines** (roche `r`) : sol bosselé, corniches dans les parois, un surplomb ;
+2. **La tour** (pierre taillée `t`) : paliers en quinconce, une cheminée étroite où l'on rebondit
+   d'une paroi à l'autre, un plancher troué qui renvoie tout en bas ;
+3. **Les éboulis** : des **pentes raides** (`j`, `k`). En Ascension, une pente à 45° n'est pas un
+   sol : on y glisse en prenant de la vitesse (`AscentFloorAngle`, `AscentSlideMax`), et au bout
+   on est projeté dans le prolongement de la pente : il faut viser les replats ;
+4. **Le vent** : deux éléments Vent, une rafale vers la gauche puis une vers la droite, qui
+   dévient le fantôme en l'air (`AscentWindAccel`) ;
+5. **Le givre** (`g`) : les corniches glissent, le fantôme continue sur son élan en atterrissant ;
+   au-dessus, la tour continue :
+6. **Les ressorts** : un ressort sur l'ancien sommet, puis des **pierres fissurées** qui tombent
+   vite : pas le temps de charger un grand saut dessus, il faut enchaîner de petits sauts ;
+7. **L'horloge** : des **blocs rythmés** en alternance, à prendre au bon temps (la charge dure
+   jusqu'à 1 s, le bloc reste 1,2 s) ;
+8. **Le carillon** : la **cloche** est sur la corniche de gauche ; une fois sonnée, la marche du
+   bas disparaît et les marches qui montent apparaissent ;
+9. **La clé** : une **trappe** (porte) ferme le haut de la salle ; la clé attend sur une
+   corniche à gauche. Tomber ne la fait pas perdre ;
+10. **La lanterne** : une bulle **sans pesanteur** (le fantôme flotte sur son élan), du givre,
+    et la sortie tout en haut à gauche.
+
+Sur le **givre**, le fantôme garde son élan en atterrissant, même écrasé ; dès qu'il charge un
+saut, il se cale et ne glisse plus.

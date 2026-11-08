@@ -10,6 +10,7 @@ public partial class Player : CharacterBody2D
 	[Signal] public delegate void DashedEventHandler();
 	[Signal] public delegate void JumpedEventHandler();
 	[Signal] public delegate void LandedEventHandler();
+	[Signal] public delegate void BonkedEventHandler();
 
 	public const float RunSpeed = 130f;
 	public const float GroundAccel = 1100f;
@@ -48,6 +49,31 @@ public partial class Player : CharacterBody2D
 	// Zéro gravité (zero_gravity.gd) : la vitesse verticale s'éteint doucement
 	public const float ZeroGDrag = 200f;
 
+	// Mode Ascension : pas de dash ni de wall jump, on charge son saut au sol et on ne dirige plus
+	// rien en l'air ; un mur renvoie le fantôme au lieu de l'arrêter
+	public const float AscentWalk = 60f;
+	public const float AscentChargeTime = 1.0f;
+	public const float AscentJumpMin = -150f;
+	public const float AscentJumpMax = -520f;
+	// Angle du saut depuis la verticale à 100 % de visée, en degrés : la force du saut se partage
+	// entre la hauteur et le côté
+	public const float AscentMaxAngle = 60f;
+	public const float AscentMaxFall = 400f;
+	public const float AscentBounce = 0.85f;
+	// Pentes : en Ascension, une pente raide (45°) n'est pas un sol, on glisse dessus jusqu'en bas
+	public const float AscentFloorAngle = 30f;
+	// En glissant, on prend de la vitesse le long de la pente (jusqu'à AscentSlideMax) et on la
+	// garde en la quittant : le fantôme est projeté dans le prolongement de la pente
+	public const float AscentSlideMax = 420f;
+	// Vent de côté, en l'air seulement (au sol, on marche comme on veut)
+	public const float AscentWindAccel = 140f;
+	// Écrasement à l'atterrissage : à partir de 2 cases de chute, à fond vers 22 cases ; le fantôme
+	// reste aplati (et immobile) d'autant plus longtemps que la chute était haute
+	public const float SplatFrom = 32f;
+	public const float SplatFull = 352f;
+	public const float SplatHoldMin = 0.12f;
+	public const float SplatHoldMax = 0.9f;
+
 	// Taille de la boîte du fantôme, en pixels
 	public static readonly Vector2 BoxSize = new(10, 14);
 
@@ -68,6 +94,22 @@ public partial class Player : CharacterBody2D
 	public float LandSpeed;
 	public bool Dead;
 	public bool Mirror;  // reflet du chapitre Miroir : gauche et droite inversées
+	public bool Ascent;  // mode Ascension (main.gd)
+	public bool Charging;
+	public float Charge;  // 0 à 1 pendant qu'on charge le saut
+	// Visée pendant la charge, de -1 (tout à gauche) à 1 (tout à droite) : la part de la charge
+	// passée à tenir droite, moins celle passée à tenir gauche. Tenir un côté toute la charge, même
+	// courte, donne 100 % ; la moitié du temps, 50 %
+	public float Aim;
+	float chargeTime;
+	float aimTime;  // temps à droite moins temps à gauche, depuis le début de la charge
+	// Hauteur de la dernière chute, en pixels (du plus haut point du saut jusqu'au sol)
+	public float LastDrop;
+	public float Splat;  // force de l'écrasement en cours, 0 à 1
+	float splatTimer;
+	float splatHold;
+	float airTop;
+	Vector2 slopeNormal;  // pente raide touchée à l'image d'avant (zéro sinon)
 	// Plateforme mobile sous le fantôme (Mover.cs), sinon null
 	public Mover FloorBody;
 	public Vector2 FloorMotion = Vector2.Zero;  // vitesse de cette plateforme, px/s
@@ -92,6 +134,8 @@ public partial class Player : CharacterBody2D
 	public override void _Ready()
 	{
 		ghostVisualScript = GD.Load<GDScript>("res://scripts/ghost_visual.gd");
+		// Le trait de debug se voit même dans le noir (les enfants gardent leur propre éclairage)
+		Material = new CanvasItemMaterial { LightMode = CanvasItemMaterial.LightModeEnum.Unshaded };
 		settings = GetNodeOrNull("/root/Settings");
 		var glow = GD.Load<GDScript>("res://scripts/glow.gd");
 
@@ -155,6 +199,13 @@ public partial class Player : CharacterBody2D
 			Freeze -= delta;
 			return;
 		}
+
+		if (Ascent)
+		{
+			AscentProcess(delta);
+			return;
+		}
+		FloorMaxAngle = Mathf.DegToRad(46f);
 
 		float ix = AxisX();
 		float iy = Input.GetAxis("up", "down");
@@ -267,6 +318,180 @@ public partial class Player : CharacterBody2D
 		float fall = Velocity.Y;
 		MoveAndSlide();
 		AfterMove(fall);
+	}
+
+	// Mode Ascension. Au sol : on marche lentement, ou on maintient saut pour charger (le fantôme se
+	// tasse, la charge plafonne à 1) ; il ne part qu'au relâcher, avec la force de la charge et
+	// l'angle de la visée. En l'air, plus aucun contrôle. Toucher un mur renvoie dans l'autre sens.
+	void AscentProcess(float delta)
+	{
+		FloorMaxAngle = Mathf.DegToRad(AscentFloorAngle);
+		float ix = AxisX();
+		bool onFloor = IsOnFloor();
+		Vector2 v = Velocity;
+		if (splatTimer > 0f)
+		{
+			// Aplati au sol : on ne bouge plus, on ne charge plus, le temps de se relever
+			splatTimer -= delta;
+			ix = 0f;
+			Charging = false;
+		}
+		if (onFloor && splatTimer > 0f)
+		{
+			// Écrasé : on ne bouge plus, sauf sur le givre où l'on continue de glisser à plat
+			v.X = OnIce() ? Mathf.MoveToward(v.X, 0f, IceDecel * delta) : 0f;
+		}
+		else if (onFloor)
+		{
+			Dashes = MaxDashes;
+			if (!Charging && Input.IsActionJustPressed("jump"))
+			{
+				Charging = true;
+				Charge = 0f;
+				Aim = 0f;
+				chargeTime = 0f;
+				aimTime = 0f;
+			}
+			if (Charging)
+			{
+				Charge = Mathf.Min(1f, Charge + delta / AscentChargeTime);
+				// Gauche et droite comptent en part de la charge : le pourcentage du temps tenu
+				chargeTime += delta;
+				aimTime += Mathf.Sign(ix) * delta;
+				Aim = Mathf.Clamp(aimTime / chargeTime, -1f, 1f);
+				// Charger cale le fantôme, même sur le givre
+				v.X = 0f;
+				if (Aim != 0f)
+					Facing = Mathf.Sign(Aim);
+				Visual.Scale = new Vector2(1f + 0.3f * Charge, 1f - 0.35f * Charge);
+				// Pleine charge : le fantôme attend qu'on relâche, la visée compte jusque-là
+				if (!Input.IsActionPressed("jump"))
+				{
+					Charging = false;
+					v = AscentJumpVelocity();
+					Charge = 0f;
+					Aim = 0f;
+					Carry = Vector2.Zero;
+					Visual.Scale = new Vector2(0.7f, 1.35f);
+					EmitSignal(SignalName.Jumped);
+				}
+			}
+			else
+			{
+				float accel = OnIce() ? (ix != 0f ? IceAccel : IceDecel) : GroundDecel;
+				v.X = Mathf.MoveToward(v.X, ix * AscentWalk, accel * delta);
+				if (ix != 0f)
+					Facing = Mathf.Sign(ix);
+			}
+		}
+		else
+			Charging = false;
+		if (!onFloor && slopeNormal != Vector2.Zero)
+		{
+			// Sur une pente raide : on file le long de la pente en accélérant (la part de la
+			// gravité dans son sens), collé à elle
+			var down = new Vector2(-slopeNormal.Y, slopeNormal.X);
+			if (down.Y < 0f)
+				down = -down;
+			float speed = Mathf.Max(0f, v.Dot(down)) + Gravity * down.Y * delta;
+			v = down * Mathf.Min(speed, AscentSlideMax) - slopeNormal * 20f;
+		}
+		else if (!onFloor && InZeroG())
+			// Zéro gravité : on flotte sur son élan, qui s'éteint doucement
+			v.Y = Mathf.MoveToward(v.Y, 0f, zeroGDrag * delta);
+		else
+			v.Y = Mathf.MoveToward(v.Y, AscentMaxFall, Gravity * delta);
+		if (!onFloor)
+			v.X += Wind().X * AscentWindAccel * delta;
+		Velocity = v;
+
+		float fall = Velocity.Y;
+		float pushX = Velocity.X;
+		MoveAndSlide();
+		// Pente raide touchée (ni sol ni mur) : on glissera dessus à l'image suivante. En la
+		// quittant, la vitesse le long de la pente reste : le fantôme est projeté avec son élan
+		slopeNormal = Vector2.Zero;
+		if (!IsOnFloor())
+		{
+			for (int i = 0; i < GetSlideCollisionCount(); i++)
+			{
+				var n = GetSlideCollision(i).GetNormal();
+				if (n.Y < -0.3f && Mathf.Abs(n.X) > 0.3f && Mathf.Abs(n.X) <= 0.9f)
+				{
+					slopeNormal = n;
+					break;
+				}
+			}
+		}
+		// Rebond : le mur renvoie le fantôme, en gardant presque tout son élan
+		if (!IsOnFloor() && pushX != 0f)
+		{
+			for (int i = 0; i < GetSlideCollisionCount(); i++)
+			{
+				var n = GetSlideCollision(i).GetNormal();
+				if (Mathf.Abs(n.X) > 0.9f && Mathf.Sign(n.X) != Mathf.Sign(pushX))
+				{
+					Velocity = new Vector2(-pushX * AscentBounce, Velocity.Y);
+					Facing = pushX > 0f ? -1 : 1;
+					Visual.Scale = new Vector2(0.75f, 1.25f);
+					EmitSignal(SignalName.Bonked);
+					break;
+				}
+			}
+		}
+		if (IsOnFloor() && !WasOnFloor)
+		{
+			LastDrop = GlobalPosition.Y - airTop;
+			Velocity = new Vector2(OnIce() ? Velocity.X : 0f, Velocity.Y);
+			if (LastDrop > SplatFrom)
+			{
+				Splat = Mathf.Clamp((LastDrop - SplatFrom) / (SplatFull - SplatFrom), 0.15f, 1f);
+				splatHold = Mathf.Lerp(SplatHoldMin, SplatHoldMax, Splat);
+				splatTimer = splatHold;
+			}
+		}
+		airTop = IsOnFloor() ? GlobalPosition.Y : Mathf.Min(airTop, GlobalPosition.Y);
+		AfterMove(fall);
+	}
+
+	// Vitesse de départ du saut chargé : sa force suit la charge, son angle suit la visée
+	// (tout droit à 0 %, AscentMaxAngle depuis la verticale à 100 %)
+	public Vector2 AscentJumpVelocity()
+	{
+		float power = -Mathf.Lerp(AscentJumpMin, AscentJumpMax, Charge);
+		float angle = Mathf.DegToRad(AscentMaxAngle) * Aim;
+		return new Vector2(Mathf.Sin(angle), -Mathf.Cos(angle)) * power;
+	}
+
+	// Option de debug « Trajectoire du saut » : pendant la charge, un trait dans la direction du
+	// saut et des points sur la courbe qu'il suivrait (sans tenir compte des murs)
+	public override void _Draw()
+	{
+		if (!Ascent || !Charging || Dead || settings == null)
+			return;
+		var v = AscentJumpVelocity();
+		// Guide de visée (option, activé par défaut) : trois points devant le fantôme, dans la
+		// direction du saut, qui s'écartent à mesure que la charge monte
+		if (settings.Get("ascent_guide").AsBool())
+		{
+			var dir = v.Normalized();
+			for (int i = 0; i < 3; i++)
+				DrawCircle(dir * (11f + (5f + 4f * Charge) * i), 1.2f - 0.2f * i, new Color(1f, 1f, 1f, 0.6f - 0.15f * i));
+		}
+		if (!settings.Get("debug_aim").AsBool())
+			return;
+		var col = new Color(1f, 0.85f, 0.3f, 0.9f);
+		DrawLine(Vector2.Zero, v.Normalized() * (12f + 28f * Charge), col, 1.5f);
+		var p = Vector2.Zero;
+		for (int i = 0; i < 40; i++)
+		{
+			for (int k = 0; k < 3; k++)
+			{
+				v.Y = Mathf.MoveToward(v.Y, AscentMaxFall, Gravity / 60f);
+				p += v / 60f;
+			}
+			DrawCircle(p, 1f, new Color(col, 0.7f * (1f - i / 40f)));
+		}
 	}
 
 	// Appelé par un courant d'air (updraft.gd) à chaque image où le fantôme est dedans
@@ -483,6 +708,8 @@ public partial class Player : CharacterBody2D
 	{
 		float delta = (float)deltaD;
 		Visual.Scale = Visual.Scale.Lerp(Vector2.One, 1f - Mathf.Exp(-14f * delta));
+		if (Ascent)
+			QueueRedraw();
 		// Sur une pente, la boîte du fantôme ne touche que par un coin : on descend le dessin
 		// d'autant pour qu'il pose bien sur le biais
 		float sink = 0f;
@@ -493,17 +720,53 @@ public partial class Player : CharacterBody2D
 				sink = 5f * Mathf.Abs(n.X / n.Y);
 		}
 		var pos = Visual.Position;
-		pos.Y = Mathf.Lerp(pos.Y, -1f + sink, 1f - Mathf.Exp(-25f * delta));
+		if (splatTimer > 0f && !Dead)
+		{
+			// Écrasé au sol : très large et très plat, collé au sol, avec un frisson au début ;
+			// il ne se regonfle que dans le dernier tiers de l'immobilité
+			float left = splatTimer / splatHold;
+			float a = Splat * Mathf.Min(1f, left * 3f);
+			float wobble = Mathf.Sin((1f - left) * 40f) * 0.06f * Splat * left;
+			var squash = new Vector2(1f + 1.1f * a + wobble, Mathf.Max(0.15f, 1f - 0.8f * a - wobble));
+			Visual.Scale = squash;
+			pos.Y = -1f + sink + 7f * (1f - squash.Y);
+		}
+		else
+		{
+			if (Splat > 0f)
+			{
+				// Il se relève d'un coup, un peu étiré
+				Visual.Scale = new Vector2(0.8f, 1.25f);
+				Splat = 0f;
+			}
+			pos.Y = Mathf.Lerp(pos.Y, -1f + sink, 1f - Mathf.Exp(-25f * delta));
+		}
 		Visual.Position = pos;
 		Visual.Set("facing", Facing);
+		// En chargeant, le fantôme regarde où il va sauter et se penche de ce côté
+		Visual.Set("aim", Ascent && Charging ? AscentJumpVelocity().Normalized() : Vector2.Zero);
+		float lean = Ascent && Charging ? Aim * 0.3f : 0f;
+		Visual.Rotation = Mathf.Lerp(Visual.Rotation, lean, 1f - Mathf.Exp(-18f * delta));
 		Visual.Set("gaze", Velocity / 180f);
 		float idle = Visual.Get("idle").AsSingle();
-		Visual.Set("idle", Velocity.Length() < 1f && !Dead ? idle + delta : 0f);
+		// Le moindre geste réveille le fantôme (même sans bouger : charger un saut, appuyer contre un mur)
+		bool still = Velocity.Length() < 1f && !Dead && !Charging && splatTimer <= 0f && !AnyInput();
+		Visual.Set("idle", still ? idle + delta : 0f);
 		// Le fantôme pâlit quand son dash est épuisé : la lumière en dit autant
 		bool hasDash = Dashes > 0 || DashTimer > 0f;
 		float targetEnergy = hasDash ? 1.6f : 0.8f;
 		Light.Energy = Mathf.Lerp(Light.Energy, targetEnergy, 1f - Mathf.Exp(-10f * delta));
 		Visual.Set("tint", hasDash ? Colors.White : new Color(0.55f, 0.55f, 0.55f));
+	}
+
+	static readonly string[] WakeActions = { "left", "right", "up", "down", "jump", "dash" };
+
+	static bool AnyInput()
+	{
+		foreach (var action in WakeActions)
+			if (Input.IsActionPressed(action))
+				return true;
+		return false;
 	}
 
 	public void Die()
@@ -549,6 +812,14 @@ public partial class Player : CharacterBody2D
 		Coyote = 0f;
 		WallLock = 0f;
 		Jumping = false;
+		Charging = false;
+		Charge = 0f;
+		Aim = 0f;
+		slopeNormal = Vector2.Zero;
+		LastDrop = 0f;
+		Splat = 0f;
+		splatTimer = 0f;
+		airTop = pos.Y;
 		Visual.Visible = true;
 		Visual.Scale = new Vector2(0.6f, 1.4f);
 		Light.Visible = true;

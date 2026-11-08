@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="LevelList" format=3 uid="uid://gy3lhbv5iwyu"]
+
+[ext_resource type="Script" uid="uid://cp25n4tentfw" path="res://levels/level_list.gd" id="1_list"]
+[ext_resource type="PackedScene" uid="uid://bakjdwo4guvd5" path="res://levels/ascension/phare.tscn" id="2_phare"]
+
+[resource]
+script = ExtResource("1_list")
+levels = Array[PackedScene]([ExtResource("2_phare")])

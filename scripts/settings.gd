@@ -16,6 +16,10 @@ var look := "none"  # apparence du fantôme (looks.gd)
 var game_speed := 10  # en dixièmes : 5 = 50 %
 var infinite_dash := false
 var invincible := false
+# Debug du mode Ascension : trajectoire du saut chargé (Player.cs). Ne compte pas comme une assistance.
+var debug_aim := false
+# Mode Ascension : petits points qui montrent la direction du saut pendant la charge
+var ascent_guide := true
 
 
 func _ready() -> void:
@@ -33,7 +37,7 @@ func _ready() -> void:
 
 
 func _keys() -> Array:
-	return ["sfx_volume", "music_volume", "shake", "vibration", "fullscreen", "show_timer", "look", "game_speed", "infinite_dash", "invincible"]
+	return ["sfx_volume", "music_volume", "shake", "vibration", "fullscreen", "show_timer", "look", "game_speed", "infinite_dash", "invincible", "debug_aim", "ascent_guide"]
 
 
 func assisted() -> bool:

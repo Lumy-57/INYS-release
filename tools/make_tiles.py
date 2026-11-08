@@ -8,7 +8,7 @@ from PIL import Image, ImageDraw
 
 T = 16
 COLS = 8
-CHARS = "#%=^v<>-" "LOX|12ab" "iMWSB~HR" "PCDEe*Yy" "_()0"
+CHARS = "#%=^v<>-" "LOX|12ab" "iMWSB~HR" "PCDEe*Yy" "_()0p"
 
 img = Image.new("RGBA", (COLS * T, (len(CHARS) + COLS - 1) // COLS * T), (0, 0, 0, 0))
 d = ImageDraw.Draw(img)
@@ -175,5 +175,11 @@ for n, ch in enumerate(CHARS):
         d.ellipse([x + 6, y + 5, x + 9, y + 10], fill=DARK)
         if ch == "y":
             d.rectangle([x + 1, y + 4, x + 14, y + 7], fill=(90, 90, 90, 255))
+    elif ch == "p":  # pont : une planche qu'on traverse par en dessous
+        d.rectangle([x, y, x + 15, y + 3], fill=(150, 120, 80, 255), outline=(210, 180, 130, 255))
+        for k in (3, 12):
+            d.line([x + k, y + 4, x + k, y + 9], fill=(110, 90, 60, 255))
+        d.line([x + 8, y + 13, x + 8, y + 7], fill=(170, 220, 255, 255))
+        d.line([x + 6, y + 9, x + 8, y + 7, x + 10, y + 9], fill=(170, 220, 255, 255))
 
 img.save(sys.argv[1])

@@ -13,6 +13,7 @@ var edges: Array = []    # [Vector2i, haut, bas, gauche, droite] exposés
 var shaped: Array = []   # [Vector2i, caractère, haut, bas, gauche, droite] exposés
 var slopes: Array = []   # [Vector2i, caractère]
 var spikes: Array = []   # [Vector2i, char]
+var bridges: Array = []  # [Vector2i premier, longueur en cases] : ponts qu'on traverse par en dessous
 var wall := Color(0.32, 0.32, 0.32)  # teintés dans l'épilogue (palette.gd)
 var rim := Color(0.95, 0.95, 0.95)
 
@@ -32,6 +33,21 @@ func _draw() -> void:
 		_draw_slope(sl[0], sl[1])
 	for s in spikes:
 		_draw_spikes(Vector2(s[0]) * TILE, s[1])
+	for b in bridges:
+		_draw_bridge(b[0], b[1])
+
+
+# Pont : une planche fine en haut de la case, des joints, et des supports à chaque bout
+func _draw_bridge(first: Vector2i, length: int) -> void:
+	var p := Vector2(first) * TILE
+	var w := float(length * TILE)
+	draw_rect(Rect2(p, Vector2(w, 4)), wall.lightened(0.15))
+	draw_rect(Rect2(p, Vector2(w, 1)), rim)
+	draw_rect(Rect2(p + Vector2(0, 4), Vector2(w, 1)), wall.darkened(0.3))
+	for i in range(1, length):
+		draw_rect(Rect2(p + Vector2(i * TILE, 1), Vector2(1, 3)), wall.darkened(0.25))
+	for x in [p.x + 2.0, p.x + w - 4.0]:
+		draw_rect(Rect2(Vector2(x, p.y + 4), Vector2(2, 5)), wall.darkened(0.15))
 
 
 # Gabarits de grappes de cristaux, dessinés « vers le haut » dans une case
