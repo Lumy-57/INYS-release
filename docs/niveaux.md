@@ -202,6 +202,18 @@ Ne déplace pas un calque (sa position doit rester (0, 0)) : l'éditeur le signa
 | **Auto Corner** / **Room Corner** | Coin en haut à gauche de la salle : automatique (tuile la plus en haut à gauche), ou la case choisie. |
 | **Room Size** | Taille de la salle en cases depuis son coin ; (0, 0) : automatique. |
 
+## Tester un niveau sans repasser par le début
+
+Ouvre la scène du niveau et appuie sur **F6** (« Lancer la scène actuelle », en haut à droite) :
+le jeu s'ouvre directement dans ce niveau, relu depuis le disque, donc avec tes dernières
+modifications. Ça marche pour les niveaux de l'histoire comme pour l'Ascension, à condition que
+le niveau soit déjà dans sa liste (`levels/list.tres` ou `levels/ascension/list.tres`).
+
+Pour partir d'ailleurs que du départ `P` (utile en haut du Phare) : ajoute sous le nœud racine un
+**Marker2D** nommé exactement `DepartTest`, et place-le là où le fantôme doit apparaître (juste
+au-dessus d'un sol). Il ne sert qu'à F6 : le jeu normal l'ignore, tu peux le laisser dans la scène.
+Les temps faits en test ne comptent pas dans les records.
+
 ## Ajouter un niveau
 
 1. Dans le dock Système de fichiers, duplique `levels/modele.tscn` (une salle d'un écran avec

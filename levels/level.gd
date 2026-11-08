@@ -17,6 +17,12 @@ const CHARS := "#%=^v<>-" + "LOX|12ab" + "iMWSB~HR" + "PCDEe*Yy" + "_()0p"
 # Source 1 de la palette (levels/murs.png, tools/make_murs.py) : les murs taillés, une rangée par
 # style, peints avec les terrains pour que l'éditeur choisisse les bords tout seul
 const SHAPED := "rtg"
+# Test rapide : lancer la scène du niveau (F6, « Lancer la scène actuelle ») ouvre le jeu
+# directement dans ce niveau, sans passer par l'écran titre. Si le niveau contient un nœud
+# « DepartTest » (un Marker2D), le fantôme part de là au lieu du départ P. Relu par main.gd.
+const TEST_MARKER := "DepartTest"
+static var test_path := ""
+static var test_start := Vector2.INF  # en px, depuis le coin de la salle
 # Dernière rangée de cette source : les pentes (scripts/slopes.gd), raides puis douces
 const SLOPE_CHARS := "jkun" + "cdfh" + "lmos"
 
@@ -59,6 +65,14 @@ func _ready() -> void:
 	if Engine.is_editor_hint():
 		child_order_changed.connect(_watch_layers)
 		_watch_layers()
+	elif get_tree().current_scene == self:
+		# Scène lancée seule (F6) : on ouvre le jeu sur ce niveau
+		test_path = scene_file_path
+		var marker := get_node_or_null(TEST_MARKER) as Node2D
+		test_start = Vector2.INF
+		if marker:
+			test_start = _offset_of(marker) - Vector2(_origin()) * TILE
+		get_tree().change_scene_to_file.call_deferred("res://scenes/main.tscn")
 
 
 # Le cadre et les avertissements suivent les calques, même ajoutés après coup

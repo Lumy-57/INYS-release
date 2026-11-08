@@ -60,6 +60,8 @@ var level_index := 0
 # Mode Ascension : les niveaux de levels/ascension/, la physique du saut chargé (Player.cs), pas de
 # mort en tombant (les niveaux ont un fond) ; level_index compte alors dans LevelData.ASCENT
 var ascent := false
+# Niveau lancé depuis l'éditeur (F6 sur sa scène, voir levels/level.gd) : pas de records
+var testing := false
 var falls := 0  # grandes chutes du niveau en cours (mode Ascension)
 const BIG_FALL := 6 * TILE
 # Le fantôme qui s'endort (ghost_visual.gd) : à partir de SLEEP_ZOOM_AT s d'immobilité,
@@ -255,6 +257,8 @@ func _ready() -> void:
 		title_menu.update_found())
 	add_child(update_check)
 	create_tween().tween_property(fade, "color:a", 0.0, 0.8)
+	if LevelScene.test_path != "":
+		_start_test.call_deferred()
 
 
 func _build_hud() -> void:
@@ -1071,7 +1075,7 @@ func _on_exit(portal, body) -> void:
 	var record := false
 	var previous_best: float = save.best_level_time(level_index)
 	var looks_before := Looks.unlocked_ids(save, stats).size()
-	if not Settings.assisted():
+	if not Settings.assisted() and not testing:
 		record = save.record_level(level_index, level_time, level_deaths)
 	# Première étincelle trouvée dans ce niveau : un fragment du journal se révèle
 	var new_fragment := not sparks_taken.is_empty() and save.found_sparks(level_index).is_empty()
@@ -1132,7 +1136,7 @@ func _ascent_exit() -> void:
 	var lvl_name: String = LevelData.ASCENT[level_index]["name"]
 	var previous_best: float = save.best_ascent_time(lvl_name)
 	var record := false
-	if not Settings.assisted():
+	if not Settings.assisted() and not testing:
 		record = save.record_ascent(lvl_name, level_time, falls)
 	stats.level_finished()
 	await fx.iris_close(player)
@@ -1320,6 +1324,35 @@ func _on_title_start(level: int, from_start: bool) -> void:
 		busy = false
 
 
+# Scène de niveau lancée seule depuis l'éditeur (F6) : on saute l'écran titre et on joue ce
+# niveau tout de suite, depuis le nœud « DepartTest » s'il y en a un
+func _start_test() -> void:
+	var path := LevelScene.test_path
+	var start := LevelScene.test_start
+	LevelScene.test_path = ""
+	LevelScene.test_start = Vector2.INF
+	var index := -1
+	var in_ascent := false
+	for list in [LevelData.LIST, LevelData.ASCENT_LIST]:
+		for i in list.levels.size():
+			if list.levels[i].resource_path == path:
+				index = i
+				in_ascent = list == LevelData.ASCENT_LIST
+	if index < 0:
+		push_warning("%s n'est dans aucune liste de niveaux (levels/list.tres ou levels/ascension/list.tres)" % path)
+		return
+	testing = true
+	title_menu.active = false
+	ascent = in_ascent
+	_on_title_start(index, false)
+	if start != Vector2.INF:
+		respawn_point = start
+		player.Respawn(respawn_point)
+		if ascent:
+			_ascent_screen_update()
+		camera.reset_smoothing()
+
+
 # Écran titre > Ascension : le mode rageant, depuis son premier niveau
 func start_ascent() -> void:
 	ascent = true
@@ -1394,6 +1427,7 @@ func _level_info(index: int) -> String:
 
 # Depuis la pause : on abandonne la partie en cours, « Continuer » reprendra à ce niveau
 func _back_to_title() -> void:
+	testing = false
 	busy = false
 	finished = false
 	deaths = 0
