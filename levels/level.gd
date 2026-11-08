@@ -76,14 +76,47 @@ func _room_changed() -> void:
 	update_configuration_warnings()
 
 
-# Dans l'éditeur : le contour de la salle et la taille d'un écran (480 × 270) depuis son coin
+const SCREEN := Vector2(480, 270)  # un écran de jeu, en px
+
+
+# Dans l'éditeur : le contour de la salle et la taille d'un écran (480 × 270) depuis son coin.
+# En Ascension (levels/ascension/), la caméra ne défile pas : on y voit le découpage en écrans
+# fixes, comptés depuis le bas comme dans main.gd, avec leur numéro.
 func _draw() -> void:
 	if not Engine.is_editor_hint():
 		return
 	var corner := Vector2(_origin()) * TILE
 	var size := Vector2(_grid_size()) * TILE
 	draw_rect(Rect2(corner, size), Color(1, 0.8, 0.3, 0.9), false, 2.0)
-	draw_rect(Rect2(corner, Vector2(480, 270)), Color(1, 1, 1, 0.25), false, 1.0)
+	if not _fixed_screens():
+		draw_rect(Rect2(corner, SCREEN), Color(1, 1, 1, 0.25), false, 1.0)
+		return
+	var line := Color(0.4, 0.9, 1.0, 0.7)
+	var bottom := corner.y + size.y
+	var font := ThemeDB.fallback_font
+	# Limites verticales, si la salle est plus large qu'un écran
+	var x := corner.x + SCREEN.x
+	while x < corner.x + size.x - 0.5:
+		draw_line(Vector2(x, corner.y), Vector2(x, bottom), line, 2.0)
+		x += SCREEN.x
+	# Limites entre écrans, depuis le bas ; le dernier écran est calé sur le haut de la salle
+	var row := 0
+	while true:
+		var top := bottom - (row + 1) * SCREEN.y
+		draw_string(font, Vector2(corner.x + 6, maxf(top, corner.y) + 18), "Écran %d" % (row + 1),
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 14, line)
+		if top <= corner.y + 0.5:
+			break
+		draw_line(Vector2(corner.x, top), Vector2(corner.x + size.x, top), line, 2.0)
+		row += 1
+	# Haut de salle non rond : ce que montre vraiment le dernier écran (il chevauche le précédent)
+	if fmod(size.y, SCREEN.y) > 0.5 and size.y > SCREEN.y:
+		draw_line(Vector2(corner.x, corner.y + SCREEN.y), Vector2(corner.x + size.x, corner.y + SCREEN.y),
+			Color(line, 0.3), 1.0)
+
+
+func _fixed_screens() -> bool:
+	return scene_file_path.contains("/ascension/")
 
 
 func _get_configuration_warnings() -> PackedStringArray:
