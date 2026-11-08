@@ -561,6 +561,10 @@ func _load_level(index: int) -> void:
 		fake.free()
 	var tb := _add_elements(data.get("elements", []), bell_cells)
 	_add_reflection(reflect_start, glass_cells)
+	# Ascension : la caméra ne suit plus le fantôme, elle montre un écran fixe à la fois
+	if ascent and camera.get_parent() != cam_follow:
+		camera.reparent(cam_follow, false)
+		camera.position = Vector2.ZERO
 	if has_fake and reflection:
 		fake.ghosts.append(reflection)
 	# Chapitre Compagnie : les pierres cachées n'apparaissent que près de l'orbe
@@ -603,7 +607,11 @@ func _load_level(index: int) -> void:
 	camera.limit_right = int(room_size.x)
 	camera.limit_bottom = int(room_size.y)
 	camera.zoom = Vector2.ONE
+	# Ascension : changement d'écran sec, sans glissement
+	camera.position_smoothing_enabled = not ascent
 	player.Respawn(respawn_point)
+	if ascent:
+		_ascent_camera()
 	camera.reset_smoothing()
 	hint_orb.set_hints(hints)
 	if not on_title and not ascent and not LevelData.is_bside(index):
@@ -1454,6 +1462,26 @@ func _menu_input() -> void:
 	_draw_menu()
 
 
+# Mode Ascension : des écrans fixes empilés depuis le bas du niveau, comme des salles. Dès que le
+# fantôme passe le haut de l'écran, on bascule sur celui du dessus ; s'il tombe, on redescend.
+# Le niveau fait un écran de large ; s'il est plus large, la caméra suit le fantôme à l'horizontale.
+func _ascent_screen_center() -> Vector2:
+	var screen_h := VIEW_HALF.y * 2.0
+	var pos := player.global_position
+	var k := maxi(0, floori((room_size.y - pos.y) / screen_h))
+	# L'écran du sommet, s'il est incomplet, se cale sur le haut du niveau
+	var cy := maxf(VIEW_HALF.y, room_size.y - VIEW_HALF.y - k * screen_h)
+	var cx := clampf(pos.x, VIEW_HALF.x, maxf(VIEW_HALF.x, room_size.x - VIEW_HALF.x))
+	return Vector2(cx, cy)
+
+
+func _ascent_camera() -> void:
+	var center := _ascent_screen_center()
+	# Fantôme endormi : la caméra glisse vers lui pendant qu'elle s'approche
+	var k := clampf((camera.zoom.x - 1.0) / (SLEEP_ZOOM - 1.0), 0.0, 1.0)
+	cam_follow.global_position = center.lerp(player.global_position, k)
+
+
 # La caméra s'approche du fantôme endormi (pas en Miroir : elle y suit les deux fantômes)
 func _sleep_zoom(delta: float) -> void:
 	var idle: float = player.Visual.get("idle")
@@ -1528,6 +1556,8 @@ func _process(delta: float) -> void:
 	if reflection:
 		since_respawn += delta
 		_mirror_update()
+	elif ascent:
+		_ascent_camera()
 	if not player.Dead and player.global_position.y > room_size.y + 24:
 		if reflection:
 			_mirror_lost(player)
