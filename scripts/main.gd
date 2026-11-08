@@ -93,6 +93,7 @@ var reflection_respawn := Vector2.ZERO
 var arrived := {}         # fantômes déjà entrés dans une sortie
 var since_respawn := 0.0  # la caméra se recale après une réapparition
 var cam_follow: Node2D    # milieu des deux fantômes, suivi par la caméra
+var ascent_screen := Vector2i(-1, -1)  # Ascension : écran fixe où se trouve le fantôme
 var deaths := 0
 var elapsed := 0.0
 var shake := 0.0
@@ -604,6 +605,8 @@ func _load_level(index: int) -> void:
 	camera.limit_bottom = int(room_size.y)
 	camera.zoom = Vector2.ONE
 	player.Respawn(respawn_point)
+	if ascent:
+		_ascent_screen_update()
 	camera.reset_smoothing()
 	hint_orb.set_hints(hints)
 	if not on_title and not ascent and not LevelData.is_bside(index):
@@ -872,10 +875,14 @@ func _add_reflection(start: Vector2, glass_cells: Array) -> void:
 	if cam_follow == null:
 		cam_follow = Node2D.new()
 		world.add_child(cam_follow)
+	# Ascension : écrans fixes, la caméra saute d'un coup à l'écran suivant (pas de lissage)
+	camera.position_smoothing_enabled = not ascent
 	if start == Vector2.INF:
-		if camera.get_parent() != player:
-			camera.reparent(player, false)
+		var anchor: Node2D = cam_follow if ascent else player
+		if camera.get_parent() != anchor:
+			camera.reparent(anchor, false)
 			camera.position = Vector2.ZERO
+		ascent_screen = Vector2i(-1, -1)
 		return
 	reflection = PlayerScript.new()
 	reflection.Mirror = true
@@ -1454,6 +1461,21 @@ func _menu_input() -> void:
 	_draw_menu()
 
 
+# Ascension : le niveau est découpé en écrans fixes, comptés depuis le bas. Dès que le fantôme
+# franchit le haut (ou le bas, en tombant) de l'écran, on passe d'un coup au suivant.
+func _ascent_screen_update() -> void:
+	var p: Vector2 = player.global_position
+	var size := VIEW_HALF * 2.0
+	var screen := Vector2i(floori(p.x / size.x), floori((room_size.y - p.y) / size.y))
+	var center := Vector2((screen.x + 0.5) * size.x, room_size.y - (screen.y + 0.5) * size.y)
+	# Fantôme endormi : en zoomant, la caméra glisse de l'écran vers lui
+	var k := clampf((camera.zoom.x - 1.0) / (SLEEP_ZOOM - 1.0), 0.0, 1.0)
+	cam_follow.global_position = center.lerp(p, k)
+	if screen != ascent_screen:
+		ascent_screen = screen
+		camera.reset_smoothing()
+
+
 # La caméra s'approche du fantôme endormi (pas en Miroir : elle y suit les deux fantômes)
 func _sleep_zoom(delta: float) -> void:
 	var idle: float = player.Visual.get("idle")
@@ -1542,5 +1564,7 @@ func _process(delta: float) -> void:
 		shake = 0.0
 	camera.offset = Vector2(randf_range(-shake, shake), randf_range(-shake, shake))
 	_sleep_zoom(delta)
+	if ascent and camera.get_parent() == cam_follow:
+		_ascent_screen_update()
 	if Settings.shake:
 		camera.offset += fx.kick
