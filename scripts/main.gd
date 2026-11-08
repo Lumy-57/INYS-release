@@ -69,8 +69,6 @@ const BIG_FALL := 6 * TILE
 const SLEEP_ZOOM_AT := 35
 const SLEEP_ZOOM := 4.0
 const SLEEP_ZOOM_TIME := 20.0
-# Ascension : la caméra recule pour montrer plus de chaque écran fixe (0,8 : 600 × 338 px du monde)
-const ASCENT_ZOOM := 0.8
 var world: Node2D
 var level_root: Node2D
 var chapter_intro: CanvasLayer
@@ -98,6 +96,9 @@ var arrived := {}         # fantômes déjà entrés dans une sortie
 var since_respawn := 0.0  # la caméra se recale après une réapparition
 var cam_follow: Node2D    # milieu des deux fantômes, suivi par la caméra
 var ascent_screen := Vector2i(-1, -1)  # Ascension : écran fixe où se trouve le fantôme
+var ascent_screens := []  # Ascension : écrans posés à la main (Rect2, nœuds Ecran du niveau)
+var ascent_auto_zoom := 0.8  # Ascension sans écrans posés : recul du découpage automatique
+var ascent_zoom := 0.8  # zoom de l'écran actuel
 var deaths := 0
 var elapsed := 0.0
 var shake := 0.0
@@ -376,6 +377,9 @@ func _load_level(index: int) -> void:
 	player.Ascent = ascent
 
 	var data: Dictionary = _level_data(index)
+	ascent_screens = data.get("screens", [])
+	ascent_auto_zoom = data.get("screen_zoom", 0.8)
+	ascent_zoom = ascent_auto_zoom
 	var colors := 0.0 if ascent else Palette.strength(index)
 	# Une case peut porter plusieurs éléments (un par calque de la scène) : grid[y][x] est la chaîne
 	# de leurs caractères, "" pour une case vide
@@ -610,9 +614,14 @@ func _load_level(index: int) -> void:
 	camera.limit_right = int(room_size.x)
 	camera.limit_bottom = int(room_size.y)
 	camera.zoom = Vector2.ONE * _base_zoom()
-	# Ascension : l'écran est plus large que la salle, la caméra se centre dessus (main._ascent_screen_update)
-	camera.limit_left = -100000 if ascent else 0
-	camera.limit_right = 100000 if ascent else int(room_size.x)
+	# Ascension : l'écran peut être plus large que la salle (la caméra se centre dessus) ; avec des
+	# écrans posés à la main, la caméra montre exactement ce qu'ils disent, sans bornes
+	if ascent:
+		camera.limit_left = -100000
+		camera.limit_right = 100000
+		if not ascent_screens.is_empty():
+			camera.limit_top = -100000
+			camera.limit_bottom = 100000
 	player.Respawn(respawn_point)
 	if ascent:
 		_ascent_screen_update()
@@ -1502,21 +1511,44 @@ func _menu_input() -> void:
 
 # Ascension : le niveau est découpé en écrans fixes, comptés depuis le bas. Dès que le fantôme
 # franchit le haut (ou le bas, en tombant) de l'écran, on passe d'un coup au suivant.
+# Avec des écrans posés à la main (nœuds Ecran), c'est celui qui contient le fantôme ; on garde
+# l'écran actuel tant qu'il y est encore (les écrans peuvent se chevaucher).
 func _ascent_screen_update() -> void:
 	var p: Vector2 = player.global_position
-	var size := VIEW_HALF * 2.0 / ASCENT_ZOOM
-	var screen := Vector2i(floori(p.x / size.x), floori((room_size.y - p.y) / size.y))
-	var center := Vector2((screen.x + 0.5) * size.x, room_size.y - (screen.y + 0.5) * size.y)
-	# Salle moins large qu'un écran : on la centre
-	if room_size.x <= size.x:
-		screen.x = 0
-		center.x = room_size.x * 0.5
-	# Fantôme endormi : en zoomant, la caméra glisse de l'écran vers lui
-	var k := clampf((camera.zoom.x - ASCENT_ZOOM) / (SLEEP_ZOOM - ASCENT_ZOOM), 0.0, 1.0)
-	cam_follow.global_position = center.lerp(p, k)
+	var screen := ascent_screen
+	var center := Vector2.ZERO
+	var zoom := ascent_auto_zoom
+	if ascent_screens.is_empty():
+		var size := VIEW_HALF * 2.0 / ascent_auto_zoom
+		screen = Vector2i(floori(p.x / size.x), floori((room_size.y - p.y) / size.y))
+		center = Vector2((screen.x + 0.5) * size.x, room_size.y - (screen.y + 0.5) * size.y)
+		# Salle moins large qu'un écran : on la centre
+		if room_size.x <= size.x:
+			screen.x = 0
+			center.x = room_size.x * 0.5
+	else:
+		var i := screen.x if screen.y == -2 else -1
+		if i < 0 or i >= ascent_screens.size() or not ascent_screens[i].has_point(p):
+			# Le premier écran qui contient le fantôme, sinon le plus proche
+			var best := INF
+			for j in ascent_screens.size():
+				var other: Rect2 = ascent_screens[j]
+				var d := 0.0 if other.has_point(p) else (p.clamp(other.position, other.end) - p).length()
+				if d < best:
+					best = d
+					i = j
+		screen = Vector2i(i, -2)
+		var r: Rect2 = ascent_screens[i]
+		center = r.get_center()
+		zoom = minf(VIEW_HALF.x * 2.0 / r.size.x, VIEW_HALF.y * 2.0 / r.size.y)
 	if screen != ascent_screen:
 		ascent_screen = screen
+		ascent_zoom = zoom
+		camera.zoom = Vector2.ONE * zoom
 		camera.reset_smoothing()
+	# Fantôme endormi : en zoomant, la caméra glisse de l'écran vers lui
+	var k := clampf((camera.zoom.x - ascent_zoom) / (SLEEP_ZOOM - ascent_zoom), 0.0, 1.0)
+	cam_follow.global_position = center.lerp(p, k)
 
 
 # La caméra s'approche du fantôme endormi (pas en Miroir : elle y suit les deux fantômes)
@@ -1539,7 +1571,7 @@ func _sleep_zoom(delta: float) -> void:
 
 
 func _base_zoom() -> float:
-	return ASCENT_ZOOM if ascent else 1.0
+	return ascent_zoom if ascent else 1.0
 
 
 func _menu_levels() -> int:

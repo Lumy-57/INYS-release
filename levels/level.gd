@@ -59,6 +59,14 @@ const SLOPE_CHARS := "jkun" + "cdfh" + "lmos"
 	set(v):
 		room_size = v
 		_room_changed()
+@export_group("Ascension")
+## Écrans de la caméra en Ascension, découpés tout seuls depuis le bas quand le niveau n'a aucun
+## nœud Ecran (levels/ecran.tscn) : recul de la caméra. 1 : écrans de 30 × 17 cases ; 0,8 : 38 × 21.
+## Plus petit = on voit plus loin.
+@export_range(0.4, 1.5, 0.05) var screen_zoom := 0.8:
+	set(v):
+		screen_zoom = v
+		queue_redraw()
 
 
 func _ready() -> void:
@@ -91,12 +99,12 @@ func _room_changed() -> void:
 
 
 const SCREEN := Vector2(480, 270)  # un écran de jeu, en px
-const ASCENT_ZOOM := 0.8  # recul de la caméra en Ascension (comme dans main.gd)
 
 
 # Dans l'éditeur : le contour de la salle et la taille d'un écran (480 × 270) depuis son coin.
-# En Ascension (levels/ascension/), la caméra ne défile pas : on y voit le découpage en écrans
-# fixes, comptés depuis le bas comme dans main.gd, avec leur numéro.
+# En Ascension (levels/ascension/), la caméra ne défile pas : sans nœud Ecran, on y voit le
+# découpage automatique en écrans fixes, comptés depuis le bas comme dans main.gd, avec leur
+# numéro (les nœuds Ecran se dessinent eux-mêmes).
 func _draw() -> void:
 	if not Engine.is_editor_hint():
 		return
@@ -106,9 +114,11 @@ func _draw() -> void:
 	if not _fixed_screens():
 		draw_rect(Rect2(corner, SCREEN), Color(1, 1, 1, 0.25), false, 1.0)
 		return
+	if not _screens(self).is_empty():
+		return
 	var line := Color(0.4, 0.9, 1.0, 0.7)
 	var bottom := corner.y + size.y
-	var screen := SCREEN / ASCENT_ZOOM
+	var screen := SCREEN / screen_zoom
 	var font := ThemeDB.fallback_font
 	# Limites verticales, si la salle est plus large qu'un écran
 	var x := corner.x + screen.x
@@ -133,6 +143,17 @@ func _draw() -> void:
 
 func _fixed_screens() -> bool:
 	return scene_file_path.contains("/ascension/")
+
+
+# Les écrans de caméra posés à la main (levels/ecran.gd), où qu'ils soient rangés
+func _screens(node: Node) -> Array:
+	var out := []
+	for c in node.get_children():
+		if c is CameraScreen:
+			out.append(c)
+		elif not c is TileMapLayer:
+			out.append_array(_screens(c))
+	return out
 
 
 func _get_configuration_warnings() -> PackedStringArray:
@@ -250,7 +271,14 @@ func to_data() -> Dictionary:
 			continue
 		d["cell"] = Vector2i((_offset_of(e) / TILE).round()) - origin
 		elements.append(d)
-	var data := {"name": level_name, "chapter": chapter, "hints": hints, "layers": layers, "elements": elements}
+	# Les écrans de caméra de l'Ascension, en px depuis le coin de la salle
+	var screens := []
+	for s in _screens(self):
+		var r: Rect2 = s.rect()
+		r.position = _offset_of(s) - Vector2(origin) * TILE
+		screens.append(r)
+	var data := {"name": level_name, "chapter": chapter, "hints": hints, "layers": layers, "elements": elements,
+		"screens": screens, "screen_zoom": screen_zoom}
 	if bside:
 		data["bside"] = true
 		data["line"] = line

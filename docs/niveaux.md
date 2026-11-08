@@ -272,10 +272,21 @@ La physique y est différente (`scripts/physique/Player.cs`, `AscentProcess`) :
   0,9 s, sans pouvoir bouger), avec de la poussière qui gicle (constantes `Splat…`). Une chute de plus de 6 cases secoue l'écran et compte comme
   une « chute » (affichée avec le temps).
 
-**La caméra ne défile pas** : le niveau est découpé en écrans fixes, comptés depuis le bas.
-La caméra y est reculée (`ASCENT_ZOOM` = 0,8 dans `scripts/main.gd` et `levels/level.gd`) : un
-écran montre 600 × 338 px du monde (37,5 × 21 cases). Une salle moins large qu'un écran est
-centrée, on voit un peu le décor de chaque côté. Dès que le fantôme passe le haut d'un écran, on bascule d'un coup
+**La caméra ne défile pas** : elle montre un écran fixe à la fois, et change d'écran d'un coup.
+Il y a deux façons de régler les écrans :
+
+- **Automatique** (rien à faire) : le niveau est découpé en écrans empilés depuis le bas. Leur
+  taille se règle avec **Screen Zoom** (nœud Niveau, groupe « Ascension » de l'Inspecteur) : à 1,
+  un écran fait 30 × 17 cases ; à 0,8 (par défaut), 38 × 21. Plus petit = on voit plus loin. Une
+  salle moins large qu'un écran est centrée, on voit un peu le décor de chaque côté.
+- **À la main** : glisse `levels/ecran.tscn` dans la scène (de préférence sous un nœud
+  « Écrans »), une fois par écran. Son coin en haut à gauche se cale sur la grille, et **Size**
+  donne sa taille en cases. Dans le jeu, la caméra montre l'écran où se trouve le fantôme, zoomée
+  pour qu'il tienne en entier ; le cadre pâle autour montre ce que la fenêtre voit vraiment quand
+  l'écran n'a pas ses proportions (16:9, par exemple 32 × 18 ou 40 × 22,5). Les écrans peuvent
+  se chevaucher : on reste sur l'écran actuel tant que le fantôme y est, ce qui évite de basculer
+  sans arrêt sur une limite. Hors de tout écran, c'est le plus proche qui est montré. Dès qu'un
+  niveau a au moins un nœud Ecran, le découpage automatique ne sert plus. Dès que le fantôme passe le haut d'un écran, on bascule d'un coup
 sur celui du dessus (et inversement en tombant). Le dernier écran est calé sur le haut de la
 salle, donc il chevauche un peu le précédent. Dans l'éditeur, les scènes de `levels/ascension/`
 montrent ces limites en bleu, avec le numéro de chaque écran : on y voit tout de suite un saut
