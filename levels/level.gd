@@ -77,6 +77,7 @@ func _room_changed() -> void:
 
 
 const SCREEN := Vector2(480, 270)  # un écran de jeu, en px
+const ASCENT_ZOOM := 0.8  # recul de la caméra en Ascension (comme dans main.gd)
 
 
 # Dans l'éditeur : le contour de la salle et la taille d'un écran (480 × 270) depuis son coin.
@@ -93,16 +94,17 @@ func _draw() -> void:
 		return
 	var line := Color(0.4, 0.9, 1.0, 0.7)
 	var bottom := corner.y + size.y
+	var screen := SCREEN / ASCENT_ZOOM
 	var font := ThemeDB.fallback_font
 	# Limites verticales, si la salle est plus large qu'un écran
-	var x := corner.x + SCREEN.x
+	var x := corner.x + screen.x
 	while x < corner.x + size.x - 0.5:
 		draw_line(Vector2(x, corner.y), Vector2(x, bottom), line, 2.0)
-		x += SCREEN.x
+		x += screen.x
 	# Limites entre écrans, depuis le bas ; le dernier écran est calé sur le haut de la salle
 	var row := 0
 	while true:
-		var top := bottom - (row + 1) * SCREEN.y
+		var top := bottom - (row + 1) * screen.y
 		draw_string(font, Vector2(corner.x + 6, maxf(top, corner.y) + 18), "Écran %d" % (row + 1),
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 14, line)
 		if top <= corner.y + 0.5:
@@ -110,8 +112,8 @@ func _draw() -> void:
 		draw_line(Vector2(corner.x, top), Vector2(corner.x + size.x, top), line, 2.0)
 		row += 1
 	# Haut de salle non rond : ce que montre vraiment le dernier écran (il chevauche le précédent)
-	if fmod(size.y, SCREEN.y) > 0.5 and size.y > SCREEN.y:
-		draw_line(Vector2(corner.x, corner.y + SCREEN.y), Vector2(corner.x + size.x, corner.y + SCREEN.y),
+	if fmod(size.y, screen.y) > 0.5 and size.y > screen.y:
+		draw_line(Vector2(corner.x, corner.y + screen.y), Vector2(corner.x + size.x, corner.y + screen.y),
 			Color(line, 0.3), 1.0)
 
 

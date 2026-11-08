@@ -260,8 +260,10 @@ La physique y est différente (`scripts/physique/Player.cs`, `AscentProcess`) :
   0,9 s, sans pouvoir bouger), avec de la poussière qui gicle (constantes `Splat…`). Une chute de plus de 6 cases secoue l'écran et compte comme
   une « chute » (affichée avec le temps).
 
-**La caméra ne défile pas** : le niveau est découpé en écrans fixes de 480 × 270 px (30 × 16,9
-cases), comptés depuis le bas. Dès que le fantôme passe le haut d'un écran, on bascule d'un coup
+**La caméra ne défile pas** : le niveau est découpé en écrans fixes, comptés depuis le bas.
+La caméra y est reculée (`ASCENT_ZOOM` = 0,8 dans `scripts/main.gd` et `levels/level.gd`) : un
+écran montre 600 × 338 px du monde (37,5 × 21 cases). Une salle moins large qu'un écran est
+centrée, on voit un peu le décor de chaque côté. Dès que le fantôme passe le haut d'un écran, on bascule d'un coup
 sur celui du dessus (et inversement en tombant). Le dernier écran est calé sur le haut de la
 salle, donc il chevauche un peu le précédent. Dans l'éditeur, les scènes de `levels/ascension/`
 montrent ces limites en bleu, avec le numéro de chaque écran : on y voit tout de suite un saut

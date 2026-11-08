@@ -67,6 +67,8 @@ const BIG_FALL := 6 * TILE
 const SLEEP_ZOOM_AT := 35
 const SLEEP_ZOOM := 4.0
 const SLEEP_ZOOM_TIME := 20.0
+# Ascension : la caméra recule pour montrer plus de chaque écran fixe (0,8 : 600 × 338 px du monde)
+const ASCENT_ZOOM := 0.8
 var world: Node2D
 var level_root: Node2D
 var chapter_intro: CanvasLayer
@@ -603,7 +605,10 @@ func _load_level(index: int) -> void:
 	camera.limit_top = 0
 	camera.limit_right = int(room_size.x)
 	camera.limit_bottom = int(room_size.y)
-	camera.zoom = Vector2.ONE
+	camera.zoom = Vector2.ONE * _base_zoom()
+	# Ascension : l'écran est plus large que la salle, la caméra se centre dessus (main._ascent_screen_update)
+	camera.limit_left = -100000 if ascent else 0
+	camera.limit_right = 100000 if ascent else int(room_size.x)
 	player.Respawn(respawn_point)
 	if ascent:
 		_ascent_screen_update()
@@ -1465,11 +1470,15 @@ func _menu_input() -> void:
 # franchit le haut (ou le bas, en tombant) de l'écran, on passe d'un coup au suivant.
 func _ascent_screen_update() -> void:
 	var p: Vector2 = player.global_position
-	var size := VIEW_HALF * 2.0
+	var size := VIEW_HALF * 2.0 / ASCENT_ZOOM
 	var screen := Vector2i(floori(p.x / size.x), floori((room_size.y - p.y) / size.y))
 	var center := Vector2((screen.x + 0.5) * size.x, room_size.y - (screen.y + 0.5) * size.y)
+	# Salle moins large qu'un écran : on la centre
+	if room_size.x <= size.x:
+		screen.x = 0
+		center.x = room_size.x * 0.5
 	# Fantôme endormi : en zoomant, la caméra glisse de l'écran vers lui
-	var k := clampf((camera.zoom.x - 1.0) / (SLEEP_ZOOM - 1.0), 0.0, 1.0)
+	var k := clampf((camera.zoom.x - ASCENT_ZOOM) / (SLEEP_ZOOM - ASCENT_ZOOM), 0.0, 1.0)
 	cam_follow.global_position = center.lerp(p, k)
 	if screen != ascent_screen:
 		ascent_screen = screen
@@ -1479,19 +1488,24 @@ func _ascent_screen_update() -> void:
 # La caméra s'approche du fantôme endormi (pas en Miroir : elle y suit les deux fantômes)
 func _sleep_zoom(delta: float) -> void:
 	var idle: float = player.Visual.get("idle")
-	var target := 1.0
+	var base := _base_zoom()
+	var target := base
 	if not reflection and idle > SLEEP_ZOOM_AT:
 		var k := clampf((idle - SLEEP_ZOOM_AT) / SLEEP_ZOOM_TIME, 0.0, 1.0)
-		target = lerpf(1.0, SLEEP_ZOOM, k * k * (3.0 - 2.0 * k))
+		target = lerpf(base, SLEEP_ZOOM, k * k * (3.0 - 2.0 * k))
 	var z := camera.zoom.x
 	# On s'approche au rythme du sommeil ; au réveil, la caméra recule d'un coup
 	z = target if target > z else lerpf(z, target, 1.0 - exp(-8.0 * delta))
 	camera.zoom = Vector2(z, z)
 	# Pendant le zoom, les textes s'effacent (chrono, nom du niveau, bulle de l'orbe) : il ne reste
 	# que le fantôme qui dort
-	var shown := clampf(1.0 - (z - 1.0) / 0.3, 0.0, 1.0)
+	var shown := clampf(1.0 - (z - base) / 0.3, 0.0, 1.0)
 	for label in [hud_label, title_label, hint_orb.bubble]:
 		label.self_modulate.a = shown
+
+
+func _base_zoom() -> float:
+	return ASCENT_ZOOM if ascent else 1.0
 
 
 func _menu_levels() -> int:

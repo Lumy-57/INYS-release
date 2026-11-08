@@ -177,7 +177,7 @@ class Ring extends Node2D:
 
 func _iris_target(player: Node2D) -> Vector2:
 	var vp := get_viewport().get_visible_rect().size
-	var c: Vector2 = (player.global_position - main.camera.get_screen_center_position()) / vp + Vector2(0.5, 0.5)
+	var c: Vector2 = (player.global_position - main.camera.get_screen_center_position()) * main.camera.zoom / vp + Vector2(0.5, 0.5)
 	return c.clamp(Vector2(0.05, 0.05), Vector2(0.95, 0.95))
 
 
