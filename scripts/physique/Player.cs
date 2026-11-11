@@ -48,6 +48,9 @@ public partial class Player : CharacterBody2D
 	public const float WindSideAccel = 900f;
 	// Zéro gravité (zero_gravity.gd) : la vitesse verticale s'éteint doucement
 	public const float ZeroGDrag = 200f;
+	// Lancé par une plateforme rapide qui s'arrête : petit bond minimum (px/s vers le haut) pour
+	// décoller d'elle quand elle allait à l'horizontale ou vers le bas, sinon le sol mangerait l'élan
+	public const float FlingLift = 120f;
 
 	// Mode Ascension : pas de dash ni de wall jump, on charge son saut au sol et on ne dirige plus
 	// rien en l'air ; un mur renvoie le fantôme au lieu de l'arrêter
@@ -796,6 +799,24 @@ public partial class Player : CharacterBody2D
 		JumpBufferLeft = 0f;
 		Jumping = false;
 		Visual.Scale = new Vector2(0.65f, 1.4f);
+	}
+
+	// Lancé par une plateforme mobile rapide qui s'arrête net (Mover.cs) : le fantôme garde sa
+	// vitesse et file avec, comme s'il l'avait quittée en pleine course. Le dash n'est pas rendu.
+	public void Fling(Vector2 v)
+	{
+		if (Dead || DashTimer > 0f)
+			return;
+		v.Y = Mathf.Min(v.Y, -FlingLift);
+		Velocity = v;
+		Carry = new Vector2(v.X, 0f);
+		FloorBody = null;
+		FloorMotion = Vector2.Zero;
+		Jumping = false;
+		Charging = false;
+		Charge = 0f;
+		Aim = 0f;
+		Visual.Scale = new Vector2(0.75f, 1.3f);
 	}
 
 	public void Respawn(Vector2 pos)

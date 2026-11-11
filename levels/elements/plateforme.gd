@@ -2,7 +2,8 @@
 # (A + « Course »), en ligne droite : à l'horizontale, à la verticale ou en diagonale. Le rail
 # qui montre sa course est dessiné tout seul. L'aller (A → B) et le retour (B → A) ont chacun leur
 # vitesse et leur accélération, et elle peut attendre que le fantôme monte dessus pour partir.
-# Le fantôme qui la quitte garde son élan.
+# Le fantôme qui la quitte garde son élan ; si elle arrive assez vite au bout de sa course, elle le
+# lance en s'arrêtant (« Propulsion »).
 @tool
 extends LevelElement
 
@@ -20,6 +21,11 @@ extends LevelElement
 ## « Fantôme dessus » : elle attend en A que le fantôme monte dessus, va en B, puis revient seule ;
 ## « Fantôme dessus aux deux bouts » : elle attend le fantôme à chaque bout (aller comme retour).
 @export_enum("Toujours", "Fantôme dessus", "Fantôme dessus aux deux bouts") var declenchement := 0
+## Vitesse d'arrivée à un bout (px/s) à partir de laquelle la plateforme, en s'arrêtant, lance le
+## fantôme posé dessus : il garde son élan et file au-delà du bout. 0 = jamais. Avec une
+## accélération constante, la vitesse d'arrivée est la vitesse réglée ; « Douce au départ » arrive
+## 1,6 fois plus vite ; une arrivée douce ne lance jamais.
+@export_range(0.0, 800.0, 10.0) var propulsion := 150.0
 
 @export_group("Aller (A → B)")
 ## Vitesse moyenne de l'aller, en px/s (60 = normal ; une case = 16 px)
@@ -41,7 +47,7 @@ extends LevelElement
 func element_data() -> Dictionary:
 	return {
 		"type": "mover", "size": size, "course": course, "pause": pause, "start": depart,
-		"trigger": declenchement,
+		"trigger": declenchement, "propel": propulsion,
 		"speed": vitesse, "ease": acceleration,
 		"speed_back": vitesse if meme_retour else vitesse_retour,
 		"ease_back": acceleration if meme_retour else acceleration_retour,
@@ -63,4 +69,15 @@ func _draw() -> void:
 	var wait: String = ["", " · attend", " · attend"][declenchement]
 	_note(Vector2(2, -3), "A" + wait)
 	var back: String = "" if meme_retour else " / %d" % int(vitesse_retour)
-	_note(b + Vector2(2, -3), "B · %d%s px/s%s" % [int(vitesse), back, wait if declenchement == 2 else ""])
+	_note(b + Vector2(2, -3), "B · %d%s px/s%s%s" % [int(vitesse), back, wait if declenchement == 2 else "", " · lance" if _lance(true) else ""])
+	if _lance(false):
+		_note(Vector2(2, -11), "lance")
+
+
+# Vrai si la plateforme lance le fantôme en arrivant au bout B (aller) ou A (retour)
+func _lance(aller: bool) -> bool:
+	if propulsion <= 0.0:
+		return false
+	var v: float = vitesse if aller or meme_retour else vitesse_retour
+	var e: int = acceleration if aller or meme_retour else acceleration_retour
+	return v * [1.0, 0.0, PI * 0.5, 0.0][e] >= propulsion
