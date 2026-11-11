@@ -17,6 +17,12 @@ const CHARS := "#%=^v<>-" + "LOX|12ab" + "iMWSB~HR" + "PCDEe*Yy" + "_()0p"
 # Source 1 de la palette (levels/murs.png, tools/make_murs.py) : les murs taillés, une rangée par
 # style, peints avec les terrains pour que l'éditeur choisisse les bords tout seul
 const SHAPED := "rtg"
+# Test rapide : lancer la scène du niveau (F6, « Lancer la scène actuelle ») ouvre le jeu
+# directement dans ce niveau, sans passer par l'écran titre. Si le niveau contient un nœud
+# « DepartTest » (un Marker2D), le fantôme part de là au lieu du départ P. Relu par main.gd.
+const TEST_MARKER := "DepartTest"
+static var test_path := ""
+static var test_start := Vector2.INF  # en px, depuis le coin de la salle
 # Dernière rangée de cette source : les pentes (scripts/slopes.gd), raides puis douces
 const SLOPE_CHARS := "jkun" + "cdfh" + "lmos"
 
@@ -53,12 +59,28 @@ const SLOPE_CHARS := "jkun" + "cdfh" + "lmos"
 	set(v):
 		room_size = v
 		_room_changed()
+@export_group("Ascension")
+## Écrans de la caméra en Ascension, découpés tout seuls depuis le bas quand le niveau n'a aucun
+## nœud Ecran (levels/ecran.tscn) : recul de la caméra. 1 : écrans de 30 × 17 cases ; 0,8 : 38 × 21.
+## Plus petit = on voit plus loin.
+@export_range(0.4, 1.5, 0.05) var screen_zoom := 0.8:
+	set(v):
+		screen_zoom = v
+		queue_redraw()
 
 
 func _ready() -> void:
 	if Engine.is_editor_hint():
 		child_order_changed.connect(_watch_layers)
 		_watch_layers()
+	elif get_tree().current_scene == self:
+		# Scène lancée seule (F6) : on ouvre le jeu sur ce niveau
+		test_path = scene_file_path
+		var marker := get_node_or_null(TEST_MARKER) as Node2D
+		test_start = Vector2.INF
+		if marker:
+			test_start = _offset_of(marker) - Vector2(_origin()) * TILE
+		get_tree().change_scene_to_file.call_deferred("res://scenes/main.tscn")
 
 
 # Le cadre et les avertissements suivent les calques, même ajoutés après coup
@@ -76,14 +98,62 @@ func _room_changed() -> void:
 	update_configuration_warnings()
 
 
-# Dans l'éditeur : le contour de la salle et la taille d'un écran (480 × 270) depuis son coin
+const SCREEN := Vector2(480, 270)  # un écran de jeu, en px
+
+
+# Dans l'éditeur : le contour de la salle et la taille d'un écran (480 × 270) depuis son coin.
+# En Ascension (levels/ascension/), la caméra ne défile pas : sans nœud Ecran, on y voit le
+# découpage automatique en écrans fixes, comptés depuis le bas comme dans main.gd, avec leur
+# numéro (les nœuds Ecran se dessinent eux-mêmes).
 func _draw() -> void:
 	if not Engine.is_editor_hint():
 		return
 	var corner := Vector2(_origin()) * TILE
 	var size := Vector2(_grid_size()) * TILE
 	draw_rect(Rect2(corner, size), Color(1, 0.8, 0.3, 0.9), false, 2.0)
-	draw_rect(Rect2(corner, Vector2(480, 270)), Color(1, 1, 1, 0.25), false, 1.0)
+	if not _fixed_screens():
+		draw_rect(Rect2(corner, SCREEN), Color(1, 1, 1, 0.25), false, 1.0)
+		return
+	if not _screens(self).is_empty():
+		return
+	var line := Color(0.4, 0.9, 1.0, 0.7)
+	var bottom := corner.y + size.y
+	var screen := SCREEN / screen_zoom
+	var font := ThemeDB.fallback_font
+	# Limites verticales, si la salle est plus large qu'un écran
+	var x := corner.x + screen.x
+	while x < corner.x + size.x - 0.5:
+		draw_line(Vector2(x, corner.y), Vector2(x, bottom), line, 2.0)
+		x += screen.x
+	# Limites entre écrans, depuis le bas ; le dernier écran est calé sur le haut de la salle
+	var row := 0
+	while true:
+		var top := bottom - (row + 1) * screen.y
+		draw_string(font, Vector2(corner.x + 6, maxf(top, corner.y) + 18), "Écran %d" % (row + 1),
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 14, line)
+		if top <= corner.y + 0.5:
+			break
+		draw_line(Vector2(corner.x, top), Vector2(corner.x + size.x, top), line, 2.0)
+		row += 1
+	# Haut de salle non rond : ce que montre vraiment le dernier écran (il chevauche le précédent)
+	if fmod(size.y, screen.y) > 0.5 and size.y > screen.y:
+		draw_line(Vector2(corner.x, corner.y + screen.y), Vector2(corner.x + size.x, corner.y + screen.y),
+			Color(line, 0.3), 1.0)
+
+
+func _fixed_screens() -> bool:
+	return scene_file_path.contains("/ascension/")
+
+
+# Les écrans de caméra posés à la main (levels/ecran.gd), où qu'ils soient rangés
+func _screens(node: Node) -> Array:
+	var out := []
+	for c in node.get_children():
+		if c is CameraScreen:
+			out.append(c)
+		elif not c is TileMapLayer:
+			out.append_array(_screens(c))
+	return out
 
 
 func _get_configuration_warnings() -> PackedStringArray:
@@ -201,7 +271,14 @@ func to_data() -> Dictionary:
 			continue
 		d["cell"] = Vector2i((_offset_of(e) / TILE).round()) - origin
 		elements.append(d)
-	var data := {"name": level_name, "chapter": chapter, "hints": hints, "layers": layers, "elements": elements}
+	# Les écrans de caméra de l'Ascension, en px depuis le coin de la salle
+	var screens := []
+	for s in _screens(self):
+		var r: Rect2 = s.rect()
+		r.position = _offset_of(s) - Vector2(origin) * TILE
+		screens.append(r)
+	var data := {"name": level_name, "chapter": chapter, "hints": hints, "layers": layers, "elements": elements,
+		"screens": screens, "screen_zoom": screen_zoom}
 	if bside:
 		data["bside"] = true
 		data["line"] = line

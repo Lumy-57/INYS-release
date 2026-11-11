@@ -202,6 +202,25 @@ Ne déplace pas un calque (sa position doit rester (0, 0)) : l'éditeur le signa
 | **Auto Corner** / **Room Corner** | Coin en haut à gauche de la salle : automatique (tuile la plus en haut à gauche), ou la case choisie. |
 | **Room Size** | Taille de la salle en cases depuis son coin ; (0, 0) : automatique. |
 
+## Tester un niveau sans repasser par le début
+
+Ouvre la scène du niveau et appuie sur **F6** (« Lancer la scène actuelle », en haut à droite) :
+le jeu s'ouvre directement dans ce niveau, relu depuis le disque, donc avec tes dernières
+modifications. Ça marche pour les niveaux de l'histoire comme pour l'Ascension, à condition que
+le niveau soit déjà dans sa liste (`levels/list.tres` ou `levels/ascension/list.tres`).
+
+Pour partir d'ailleurs que du départ `P` (utile en haut du Phare) : ajoute sous le nœud racine un
+**Marker2D** nommé exactement `DepartTest`, et place-le là où le fantôme doit apparaître (juste
+au-dessus d'un sol). Il ne sert qu'à F6 : le jeu normal l'ignore, tu peux le laisser dans la scène.
+Les temps faits en test ne comptent pas dans les records.
+
+**Rechargement à chaud** : tant que le jeu tourne depuis l'éditeur (F5 ou F6), sauvegarde la
+scène du niveau en cours (**Ctrl+S**) et le jeu le reconstruit dans la seconde, sans s'arrêter :
+le fantôme reste où il est, avec son élan, et le chrono continue. On peut donc peindre une
+corniche, sauvegarder, et la voir apparaître sous le fantôme. Les éléments (blocs rythmés,
+ressorts…) repartent de zéro. Pour voir le jeu dans l'éditeur plutôt que dans une fenêtre à part,
+utilise l'onglet **Jeu** en haut de l'éditeur. Dans un jeu exporté, rien de tout ça n'est actif.
+
 ## Ajouter un niveau
 
 1. Dans le dock Système de fichiers, duplique `levels/modele.tscn` (une salle d'un écran avec
@@ -259,6 +278,26 @@ La physique y est différente (`scripts/physique/Player.cs`, `AscentProcess`) :
   plus la chute est haute, plus il s'aplatit et plus il met de temps à se relever (jusqu'à
   0,9 s, sans pouvoir bouger), avec de la poussière qui gicle (constantes `Splat…`). Une chute de plus de 6 cases secoue l'écran et compte comme
   une « chute » (affichée avec le temps).
+
+**La caméra ne défile pas** : elle montre un écran fixe à la fois, et change d'écran d'un coup.
+Il y a deux façons de régler les écrans :
+
+- **Automatique** (rien à faire) : le niveau est découpé en écrans empilés depuis le bas. Leur
+  taille se règle avec **Screen Zoom** (nœud Niveau, groupe « Ascension » de l'Inspecteur) : à 1,
+  un écran fait 30 × 17 cases ; à 0,8 (par défaut), 38 × 21. Plus petit = on voit plus loin. Une
+  salle moins large qu'un écran est centrée, on voit un peu le décor de chaque côté.
+- **À la main** : glisse `levels/ecran.tscn` dans la scène (de préférence sous un nœud
+  « Écrans »), une fois par écran. Son coin en haut à gauche se cale sur la grille, et **Size**
+  donne sa taille en cases. Dans le jeu, la caméra montre l'écran où se trouve le fantôme, zoomée
+  pour qu'il tienne en entier ; le cadre pâle autour montre ce que la fenêtre voit vraiment quand
+  l'écran n'a pas ses proportions (16:9, par exemple 32 × 18 ou 40 × 22,5). Les écrans peuvent
+  se chevaucher : on reste sur l'écran actuel tant que le fantôme y est, ce qui évite de basculer
+  sans arrêt sur une limite. Hors de tout écran, c'est le plus proche qui est montré. Dès qu'un
+  niveau a au moins un nœud Ecran, le découpage automatique ne sert plus. Dès que le fantôme passe le haut d'un écran, on bascule d'un coup
+sur celui du dessus (et inversement en tombant). Le dernier écran est calé sur le haut de la
+salle, donc il chevauche un peu le précédent. Dans l'éditeur, les scènes de `levels/ascension/`
+montrent ces limites en bleu, avec le numéro de chaque écran : on y voit tout de suite un saut
+qui se fait à cheval sur deux écrans.
 
 L'option **Debug · trajectoire du saut** (Options) montre pendant la charge un trait dans la
 direction du saut et la courbe qu'il suivrait, sans tenir compte des murs.

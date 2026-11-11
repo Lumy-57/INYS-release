@@ -60,6 +60,14 @@ var level_index := 0
 # Mode Ascension : les niveaux de levels/ascension/, la physique du saut chargé (Player.cs), pas de
 # mort en tombant (les niveaux ont un fond) ; level_index compte alors dans LevelData.ASCENT
 var ascent := false
+# Niveau lancé depuis l'éditeur (F6 sur sa scène, voir levels/level.gd) : pas de records
+var testing := false
+# Rechargement à chaud (jeu lancé depuis l'éditeur) : la scène du niveau en cours et sa date
+# de modification ; sauvegarder la scène dans l'éditeur reconstruit le niveau sans s'arrêter
+const HOT_RELOAD_EVERY := 0.4
+var hot_path := ""
+var hot_time := 0
+var hot_wait := 0.0
 var falls := 0  # grandes chutes du niveau en cours (mode Ascension)
 const BIG_FALL := 6 * TILE
 # Le fantôme qui s'endort (ghost_visual.gd) : à partir de SLEEP_ZOOM_AT s d'immobilité,
@@ -93,6 +101,10 @@ var reflection_respawn := Vector2.ZERO
 var arrived := {}         # fantômes déjà entrés dans une sortie
 var since_respawn := 0.0  # la caméra se recale après une réapparition
 var cam_follow: Node2D    # milieu des deux fantômes, suivi par la caméra
+var ascent_screen := Vector2i(-1, -1)  # Ascension : écran fixe où se trouve le fantôme
+var ascent_screens := []  # Ascension : écrans posés à la main (Rect2, nœuds Ecran du niveau)
+var ascent_auto_zoom := 0.8  # Ascension sans écrans posés : recul du découpage automatique
+var ascent_zoom := 0.8  # zoom de l'écran actuel
 var deaths := 0
 var elapsed := 0.0
 var shake := 0.0
@@ -252,6 +264,8 @@ func _ready() -> void:
 		title_menu.update_found())
 	add_child(update_check)
 	create_tween().tween_property(fade, "color:a", 0.0, 0.8)
+	if LevelScene.test_path != "":
+		_start_test.call_deferred()
 
 
 func _build_hud() -> void:
@@ -369,6 +383,11 @@ func _load_level(index: int) -> void:
 	player.Ascent = ascent
 
 	var data: Dictionary = _level_data(index)
+	hot_path = _level_path(index) if OS.has_feature("editor") else ""
+	hot_time = FileAccess.get_modified_time(hot_path) if hot_path != "" else 0
+	ascent_screens = data.get("screens", [])
+	ascent_auto_zoom = data.get("screen_zoom", 0.8)
+	ascent_zoom = ascent_auto_zoom
 	var colors := 0.0 if ascent else Palette.strength(index)
 	# Une case peut porter plusieurs éléments (un par calque de la scène) : grid[y][x] est la chaîne
 	# de leurs caractères, "" pour une case vide
@@ -602,8 +621,18 @@ func _load_level(index: int) -> void:
 	camera.limit_top = 0
 	camera.limit_right = int(room_size.x)
 	camera.limit_bottom = int(room_size.y)
-	camera.zoom = Vector2.ONE
+	camera.zoom = Vector2.ONE * _base_zoom()
+	# Ascension : l'écran peut être plus large que la salle (la caméra se centre dessus) ; avec des
+	# écrans posés à la main, la caméra montre exactement ce qu'ils disent, sans bornes
+	if ascent:
+		camera.limit_left = -100000
+		camera.limit_right = 100000
+		if not ascent_screens.is_empty():
+			camera.limit_top = -100000
+			camera.limit_bottom = 100000
 	player.Respawn(respawn_point)
+	if ascent:
+		_ascent_screen_update()
 	camera.reset_smoothing()
 	hint_orb.set_hints(hints)
 	if not on_title and not ascent and not LevelData.is_bside(index):
@@ -872,10 +901,14 @@ func _add_reflection(start: Vector2, glass_cells: Array) -> void:
 	if cam_follow == null:
 		cam_follow = Node2D.new()
 		world.add_child(cam_follow)
+	# Ascension : écrans fixes, la caméra saute d'un coup à l'écran suivant (pas de lissage)
+	camera.position_smoothing_enabled = not ascent
 	if start == Vector2.INF:
-		if camera.get_parent() != player:
-			camera.reparent(player, false)
+		var anchor: Node2D = cam_follow if ascent else player
+		if camera.get_parent() != anchor:
+			camera.reparent(anchor, false)
 			camera.position = Vector2.ZERO
+		ascent_screen = Vector2i(-1, -1)
 		return
 	reflection = PlayerScript.new()
 	reflection.Mirror = true
@@ -1059,7 +1092,7 @@ func _on_exit(portal, body) -> void:
 	var record := false
 	var previous_best: float = save.best_level_time(level_index)
 	var looks_before := Looks.unlocked_ids(save, stats).size()
-	if not Settings.assisted():
+	if not Settings.assisted() and not testing:
 		record = save.record_level(level_index, level_time, level_deaths)
 	# Première étincelle trouvée dans ce niveau : un fragment du journal se révèle
 	var new_fragment := not sparks_taken.is_empty() and save.found_sparks(level_index).is_empty()
@@ -1120,7 +1153,7 @@ func _ascent_exit() -> void:
 	var lvl_name: String = LevelData.ASCENT[level_index]["name"]
 	var previous_best: float = save.best_ascent_time(lvl_name)
 	var record := false
-	if not Settings.assisted():
+	if not Settings.assisted() and not testing:
 		record = save.record_ascent(lvl_name, level_time, falls)
 	stats.level_finished()
 	await fx.iris_close(player)
@@ -1308,6 +1341,83 @@ func _on_title_start(level: int, from_start: bool) -> void:
 		busy = false
 
 
+# Chemin de la scène d'un niveau (res://levels/…tscn), dans sa liste
+func _level_path(index: int) -> String:
+	var list: Resource = LevelData.ASCENT_LIST if ascent else LevelData.LIST
+	return list.levels[index].resource_path if index < list.levels.size() else ""
+
+
+# Jeu lancé depuis l'éditeur : quand la scène du niveau en cours est sauvegardée (Ctrl+S), on la
+# relit et on reconstruit le niveau, en gardant le fantôme où il est, avec son élan, et le chrono
+func _hot_reload_check(delta: float) -> void:
+	if hot_path == "" or busy or finished or paused or on_title:
+		return
+	hot_wait -= delta
+	if hot_wait > 0.0:
+		return
+	hot_wait = HOT_RELOAD_EVERY
+	var t := FileAccess.get_modified_time(hot_path)
+	if t == hot_time:
+		return
+	hot_time = t
+	var scene := ResourceLoader.load(hot_path, "", ResourceLoader.CACHE_MODE_REPLACE) as PackedScene
+	if scene == null:
+		return
+	var level = scene.instantiate()
+	var data: Dictionary = level.to_data()
+	level.free()
+	var levels: Array = LevelData.ASCENT if ascent else LevelData.LEVELS
+	levels[level_index] = data
+	var pos: Vector2 = player.global_position
+	var vel: Vector2 = player.velocity
+	var was_dead: bool = player.Dead
+	var keep_respawn := respawn_point
+	var keep := [level_time, elapsed, falls, deaths, level_deaths]
+	_load_level(level_index)
+	level_time = keep[0]
+	elapsed = keep[1]
+	falls = keep[2]
+	deaths = keep[3]
+	level_deaths = keep[4]
+	respawn_point = keep_respawn
+	if not was_dead:
+		player.Respawn(pos)
+		player.velocity = vel
+	if ascent:
+		_ascent_screen_update()
+	camera.reset_smoothing()
+	print("Niveau rechargé : ", hot_path)
+
+
+# Scène de niveau lancée seule depuis l'éditeur (F6) : on saute l'écran titre et on joue ce
+# niveau tout de suite, depuis le nœud « DepartTest » s'il y en a un
+func _start_test() -> void:
+	var path := LevelScene.test_path
+	var start := LevelScene.test_start
+	LevelScene.test_path = ""
+	LevelScene.test_start = Vector2.INF
+	var index := -1
+	var in_ascent := false
+	for list in [LevelData.LIST, LevelData.ASCENT_LIST]:
+		for i in list.levels.size():
+			if list.levels[i].resource_path == path:
+				index = i
+				in_ascent = list == LevelData.ASCENT_LIST
+	if index < 0:
+		push_warning("%s n'est dans aucune liste de niveaux (levels/list.tres ou levels/ascension/list.tres)" % path)
+		return
+	testing = true
+	title_menu.active = false
+	ascent = in_ascent
+	_on_title_start(index, false)
+	if start != Vector2.INF:
+		respawn_point = start
+		player.Respawn(respawn_point)
+		if ascent:
+			_ascent_screen_update()
+		camera.reset_smoothing()
+
+
 # Écran titre > Ascension : le mode rageant, depuis son premier niveau
 func start_ascent() -> void:
 	ascent = true
@@ -1382,6 +1492,7 @@ func _level_info(index: int) -> String:
 
 # Depuis la pause : on abandonne la partie en cours, « Continuer » reprendra à ce niveau
 func _back_to_title() -> void:
+	testing = false
 	busy = false
 	finished = false
 	deaths = 0
@@ -1454,22 +1565,69 @@ func _menu_input() -> void:
 	_draw_menu()
 
 
+# Ascension : le niveau est découpé en écrans fixes, comptés depuis le bas. Dès que le fantôme
+# franchit le haut (ou le bas, en tombant) de l'écran, on passe d'un coup au suivant.
+# Avec des écrans posés à la main (nœuds Ecran), c'est celui qui contient le fantôme ; on garde
+# l'écran actuel tant qu'il y est encore (les écrans peuvent se chevaucher).
+func _ascent_screen_update() -> void:
+	var p: Vector2 = player.global_position
+	var screen := ascent_screen
+	var center := Vector2.ZERO
+	var zoom := ascent_auto_zoom
+	if ascent_screens.is_empty():
+		var size := VIEW_HALF * 2.0 / ascent_auto_zoom
+		screen = Vector2i(floori(p.x / size.x), floori((room_size.y - p.y) / size.y))
+		center = Vector2((screen.x + 0.5) * size.x, room_size.y - (screen.y + 0.5) * size.y)
+		# Salle moins large qu'un écran : on la centre
+		if room_size.x <= size.x:
+			screen.x = 0
+			center.x = room_size.x * 0.5
+	else:
+		var i := screen.x if screen.y == -2 else -1
+		if i < 0 or i >= ascent_screens.size() or not ascent_screens[i].has_point(p):
+			# Le premier écran qui contient le fantôme, sinon le plus proche
+			var best := INF
+			for j in ascent_screens.size():
+				var other: Rect2 = ascent_screens[j]
+				var d := 0.0 if other.has_point(p) else (p.clamp(other.position, other.end) - p).length()
+				if d < best:
+					best = d
+					i = j
+		screen = Vector2i(i, -2)
+		var r: Rect2 = ascent_screens[i]
+		center = r.get_center()
+		zoom = minf(VIEW_HALF.x * 2.0 / r.size.x, VIEW_HALF.y * 2.0 / r.size.y)
+	if screen != ascent_screen:
+		ascent_screen = screen
+		ascent_zoom = zoom
+		camera.zoom = Vector2.ONE * zoom
+		camera.reset_smoothing()
+	# Fantôme endormi : en zoomant, la caméra glisse de l'écran vers lui
+	var k := clampf((camera.zoom.x - ascent_zoom) / (SLEEP_ZOOM - ascent_zoom), 0.0, 1.0)
+	cam_follow.global_position = center.lerp(p, k)
+
+
 # La caméra s'approche du fantôme endormi (pas en Miroir : elle y suit les deux fantômes)
 func _sleep_zoom(delta: float) -> void:
 	var idle: float = player.Visual.get("idle")
-	var target := 1.0
+	var base := _base_zoom()
+	var target := base
 	if not reflection and idle > SLEEP_ZOOM_AT:
 		var k := clampf((idle - SLEEP_ZOOM_AT) / SLEEP_ZOOM_TIME, 0.0, 1.0)
-		target = lerpf(1.0, SLEEP_ZOOM, k * k * (3.0 - 2.0 * k))
+		target = lerpf(base, SLEEP_ZOOM, k * k * (3.0 - 2.0 * k))
 	var z := camera.zoom.x
 	# On s'approche au rythme du sommeil ; au réveil, la caméra recule d'un coup
 	z = target if target > z else lerpf(z, target, 1.0 - exp(-8.0 * delta))
 	camera.zoom = Vector2(z, z)
 	# Pendant le zoom, les textes s'effacent (chrono, nom du niveau, bulle de l'orbe) : il ne reste
 	# que le fantôme qui dort
-	var shown := clampf(1.0 - (z - 1.0) / 0.3, 0.0, 1.0)
+	var shown := clampf(1.0 - (z - base) / 0.3, 0.0, 1.0)
 	for label in [hud_label, title_label, hint_orb.bubble]:
 		label.self_modulate.a = shown
+
+
+func _base_zoom() -> float:
+	return ascent_zoom if ascent else 1.0
 
 
 func _menu_levels() -> int:
@@ -1542,5 +1700,8 @@ func _process(delta: float) -> void:
 		shake = 0.0
 	camera.offset = Vector2(randf_range(-shake, shake), randf_range(-shake, shake))
 	_sleep_zoom(delta)
+	_hot_reload_check(delta)
+	if ascent and camera.get_parent() == cam_follow:
+		_ascent_screen_update()
 	if Settings.shake:
 		camera.offset += fx.kick
