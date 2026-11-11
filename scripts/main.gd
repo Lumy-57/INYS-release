@@ -105,6 +105,9 @@ var ascent_screen := Vector2i(-1, -1)  # Ascension : écran fixe où se trouve l
 var ascent_screens := []  # Ascension : écrans posés à la main (Rect2, nœuds Ecran du niveau)
 var ascent_auto_zoom := 0.8  # Ascension sans écrans posés : recul du découpage automatique
 var ascent_zoom := 0.8  # zoom de l'écran actuel
+# Ascension : éléments animés ou éclairés, avec la zone qu'ils occupent. Seuls ceux près de
+# l'écran actuel restent visibles : les autres ne se redessinent plus et leur lumière s'éteint.
+var ascent_cullables: Array = []  # [CanvasItem, Rect2]
 var deaths := 0
 var elapsed := 0.0
 var shake := 0.0
@@ -473,6 +476,7 @@ func _load_level(index: int) -> void:
 	# Rendu, ombres et entités
 	var occluders := Node2D.new()
 	level_root.add_child(occluders)
+	var occ_rects := {}  # case de bord de mur -> son ombre, fusionnées après la boucle
 	for y in h:
 		for x in w:
 			var here: String = grid[y][x]
@@ -503,11 +507,7 @@ func _load_level(index: int) -> void:
 						if up or down or left or right:
 							var r := Rect2(base, Vector2(TILE, TILE))
 							r = r.grow_individual(-RIM if left else 0.0, -RIM if up else 0.0, -RIM if right else 0.0, -RIM if down else 0.0)
-							var occ := LightOccluder2D.new()
-							var poly := OccluderPolygon2D.new()
-							poly.polygon = PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)])
-							occ.occluder = poly
-							occluders.add_child(occ)
+							occ_rects[cell] = r
 					"j", "k", "u", "n", "c", "d", "f", "h", "l", "m", "o", "s":
 						# Pente : collision en biais, ombre un peu en retrait comme les murs
 						drawer.slopes.append([cell, c])
@@ -566,6 +566,7 @@ func _load_level(index: int) -> void:
 						sp.collected.connect(_on_spark)
 						level_root.add_child(sp)
 						sparks.append(sp)
+	_add_wall_occluders(occ_rects, occluders)
 	_add_bridges(bridge_cells, drawer)
 	level_root.add_child(drawer)
 	level_root.move_child(drawer, 0)
@@ -632,6 +633,8 @@ func _load_level(index: int) -> void:
 			camera.limit_bottom = 100000
 	player.Respawn(respawn_point)
 	if ascent:
+		_collect_cullables()
+		ascent_screen = Vector2i(-1, -1)  # le nouveau niveau choisit son écran (et ses éléments visibles)
 		_ascent_screen_update()
 	camera.reset_smoothing()
 	hint_orb.set_hints(hints)
@@ -645,6 +648,44 @@ func _load_level(index: int) -> void:
 	tw.tween_property(title_label, "modulate:a", 1.0, 0.4)
 	tw.tween_interval(1.6)
 	tw.tween_property(title_label, "modulate:a", 0.0, 0.8)
+
+
+# Ombres des murs : une case de bord donnait un occulteur ; les cases voisines qui se touchent
+# bord à bord sont réunies en un seul rectangle (d'abord en rangées, puis les rangées de même
+# largeur empilées). Même ombre à l'écran, mais des dizaines de fois moins d'occulteurs que la
+# lumière du fantôme doit passer en revue à chaque image.
+func _add_wall_occluders(rects: Dictionary, parent: Node2D) -> void:
+	var cells := rects.keys()
+	cells.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return a.y < b.y or (a.y == b.y and a.x < b.x))
+	var runs: Array[Rect2] = []
+	for cell in cells:
+		var r: Rect2 = rects[cell]
+		if not runs.is_empty():
+			var last := runs[runs.size() - 1]
+			if is_equal_approx(last.end.x, r.position.x) and is_equal_approx(last.position.y, r.position.y) \
+					and is_equal_approx(last.end.y, r.end.y):
+				runs[runs.size() - 1] = last.merge(r)
+				continue
+		runs.append(r)
+	# Empilement : un rectangle qui commence pile où finit un autre de mêmes bords gauche/droite
+	var open := {}  # Vector3(gauche, droite, bas) -> indice dans merged
+	var merged: Array[Rect2] = []
+	for r in runs:
+		var key := Vector3(r.position.x, r.end.x, r.position.y)
+		if open.has(key):
+			var i: int = open[key]
+			open.erase(key)
+			merged[i] = merged[i].merge(r)
+			open[Vector3(r.position.x, r.end.x, r.end.y)] = i
+		else:
+			merged.append(r)
+			open[Vector3(r.position.x, r.end.x, r.end.y)] = merged.size() - 1
+	for r in merged:
+		var occ := LightOccluder2D.new()
+		var poly := OccluderPolygon2D.new()
+		poly.polygon = PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)])
+		occ.occluder = poly
+		parent.add_child(occ)
 
 
 # Ponts (tuile p) : une planche par suite de cases, qui porte le fantôme par-dessus et le laisse
@@ -1603,9 +1644,41 @@ func _ascent_screen_update() -> void:
 		ascent_zoom = zoom
 		camera.zoom = Vector2.ONE * zoom
 		camera.reset_smoothing()
+		var half := VIEW_HALF / zoom
+		_ascent_cull(Rect2(center - half, half * 2.0))
 	# Fantôme endormi : en zoomant, la caméra glisse de l'écran vers lui
 	var k := clampf((camera.zoom.x - ascent_zoom) / (SLEEP_ZOOM - ascent_zoom), 0.0, 1.0)
 	cam_follow.global_position = center.lerp(p, k)
+
+
+# Les éléments qu'on peut cacher hors de l'écran : ceux qui ne bougent pas d'eux-mêmes (les
+# plateformes, clés, ombres qui poursuivent, ténèbres qui montent restent toujours affichés)
+func _collect_cullables() -> void:
+	ascent_cullables.clear()
+	for child in level_root.get_children():
+		var s: Script = child.get_script()
+		var area := Rect2()
+		if s == Checkpoint or s == Crystal or s == Spark or s == ExitPortal or s == Spring:
+			area = Rect2(child.position - Vector2(24, 40), Vector2(48, 56))
+			if s == ExitPortal and child.flat:
+				area = Rect2(child.position - Vector2(child.length + 16, 24), Vector2(child.length + 32, 48))
+		elif s == CrumbleBlock or s == Door:
+			area = child.Rect
+		elif s == Updraft or s == ZeroGravity:
+			area = child.rect
+		else:
+			continue
+		ascent_cullables.append([child, area])
+
+
+# Montre les éléments qui touchent l'écran (avec une marge pour la lueur de leur lumière), cache
+# les autres : un nœud caché ne se redessine plus à chaque image
+func _ascent_cull(view: Rect2) -> void:
+	var near := view.grow(160.0)
+	for entry in ascent_cullables:
+		var node: CanvasItem = entry[0]
+		if is_instance_valid(node):
+			node.visible = near.intersects(entry[1])
 
 
 # La caméra s'approche du fantôme endormi (pas en Miroir : elle y suit les deux fantômes)

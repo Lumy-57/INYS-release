@@ -2,6 +2,10 @@
 # Les murs taillés (r roche, t pierre taillée, g givre) arrondissent ou biseautent leurs coins
 # saillants et portent un relief discret, dans les mêmes gris que les murs.
 # Les pentes (scripts/slopes.gd) sont pleines, avec un liseré le long de leur biais.
+#
+# Le dessin est découpé en morceaux de CHUNK × CHUNK cases, un nœud chacun : Godot ne rend que
+# les morceaux à l'écran. D'un seul tenant, un grand niveau (l'Ascension) renvoyait à la carte
+# graphique tous ses murs à chaque image, même ceux très loin de la caméra.
 extends Node2D
 
 const Slopes = preload("res://scripts/slopes.gd")
@@ -16,6 +20,34 @@ var spikes: Array = []   # [Vector2i, char]
 var bridges: Array = []  # [Vector2i premier, longueur en cases] : ponts qu'on traverse par en dessous
 var wall := Color(0.32, 0.32, 0.32)  # teintés dans l'épilogue (palette.gd)
 var rim := Color(0.95, 0.95, 0.95)
+
+const CHUNK := 16  # côté d'un morceau, en cases (un écran fait environ 30 × 17 cases)
+var is_chunk := false
+
+
+# Une fois rempli et posé dans le niveau, le dessinateur répartit ses cases entre des morceaux
+# (des enfants de ce même script) et ne dessine plus rien lui-même
+func _ready() -> void:
+	if is_chunk:
+		return
+	var pieces := {}
+	var lists := {"solids": solids, "edges": edges, "shaped": shaped, "slopes": slopes,
+		"spikes": spikes, "bridges": bridges}
+	for list_name in lists:
+		for item in lists[list_name]:
+			var cell: Vector2i = item if item is Vector2i else item[0]
+			var key := Vector2i(floori(cell.x / float(CHUNK)), floori(cell.y / float(CHUNK)))
+			if not pieces.has(key):
+				var piece: Node2D = get_script().new()
+				piece.is_chunk = true
+				piece.wall = wall
+				piece.rim = rim
+				pieces[key] = piece
+			pieces[key].get(list_name).append(item)
+	for key in pieces:
+		add_child(pieces[key])
+	for list_name in lists:
+		lists[list_name].clear()
 
 
 func _draw() -> void:
