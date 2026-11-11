@@ -1,7 +1,8 @@
 // Plateforme mobile (élément levels/elements/plateforme.gd) : fait l'aller-retour en ligne droite
 // entre ses deux bouts, A et B, avec un arrêt à chaque bout. L'aller et le retour ont chacun leur
 // vitesse moyenne et leur accélération ; elle peut attendre que le fantôme monte dessus pour
-// partir. Elle tient à jour sa vitesse (Motion), que le fantôme garde en la quittant.
+// partir. Elle tient à jour sa vitesse (Motion), que le fantôme garde en la quittant. Assez rapide
+// (Propel), elle lance le fantôme quand elle s'arrête au bout de sa course : il file avec son élan.
 using Godot;
 
 namespace Lumignon;
@@ -22,6 +23,9 @@ public partial class Mover : AnimatableBody2D
 	public float Pause = 0.4f;             // secondes d'arrêt à chaque bout
 	public float StartAt;                  // position de départ : 0 = en A, 1 = en B
 	public TriggerKind Trigger = TriggerKind.Always;  // quand elle part
+	// Vitesse d'arrivée (px/s) à partir de laquelle elle lance le fantôme en s'arrêtant à un bout ;
+	// 0 = jamais
+	public float Propel = 150f;
 	public Player Player;
 	public Vector2 Motion = Vector2.Zero;  // vitesse de la dernière image, px/s
 
@@ -69,6 +73,16 @@ public partial class Mover : AnimatableBody2D
 		_ => p,
 	};
 
+	// Vitesse en fin de trajet, en part de la vitesse moyenne (dérivée de EaseAt en p = 1) : une
+	// arrivée douce s'arrête en douceur et ne lance rien
+	static float EndSpeed(EaseKind kind) => kind switch
+	{
+		EaseKind.SmoothBoth => 0f,
+		EaseKind.SmoothStart => Mathf.Pi * 0.5f,
+		EaseKind.SmoothEnd => 0f,
+		_ => 1f,
+	};
+
 	// Attend-elle le fantôme avant le trajet qui vient ?
 	bool Holds() => Trigger == TriggerKind.OnBoardBothEnds || (Trigger == TriggerKind.OnBoard && leg > 0);
 
@@ -104,6 +118,14 @@ public partial class Mover : AnimatableBody2D
 		Position = Start + Course * (leg > 0 ? f : 1f - f);
 		if (p >= 1f)
 		{
+			// Arrêt net au bout : le fantôme posé dessus continue sur sa lancée
+			if (Propel > 0f && PlayerOn())
+			{
+				var ease = leg > 0 ? EaseOut : EaseBack;
+				var arrive = Course.Normalized() * (leg > 0 ? Speed : SpeedBack) * EndSpeed(ease) * leg;
+				if (arrive.Length() >= Propel)
+					Player.Fling(arrive);
+			}
 			leg = -leg;
 			t = 0f;
 			wait = Pause;

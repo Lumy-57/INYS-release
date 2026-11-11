@@ -765,6 +765,7 @@ func _add_elements(elements: Array, bell_cells: Array) -> Node2D:
 				mv.Pause = e["pause"]
 				mv.StartAt = e["start"]
 				mv.Trigger = e.get("trigger", 0)
+				mv.Propel = e.get("propel", 150.0)
 				mv.Player = player
 				level_root.add_child(mv)
 				rails.append_array(_rail_points(rect, e["course"]))
